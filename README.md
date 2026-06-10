@@ -58,6 +58,8 @@ and JVMs burn memory. gaussdataflow is built for what comes next:
 | **Orchestrator** | Postgres-backed queue, scheduler (cron + interval), retries, heartbeats, cancellation — embedded in the server (`--worker`) or scaled out as separate processes |
 | **Replication engine** | `gauss-sync` — pipe-backpressured source→destination streaming with destination-acked checkpointing |
 | **Connector registry** | Seeded with 35+ popular sources & destinations; import the full public catalog with one API call; register anything by image or local binary |
+| **Rust CDK** | `gauss-cdk` — implement two traits, get a complete protocol-correct connector binary; container-free execution via the `exec:` launcher |
+| **Low-code engine** | `gauss-declarative` — describe an HTTP API in a YAML manifest (auth, pagination, incremental cursors) and run it as a native source: no container, no code |
 | **Dev CLI** | `gauss spec\|check\|discover\|read` — the connector development loop against any image or binary |
 
 ## Quickstart
@@ -119,6 +121,45 @@ schedule, triggers the job, and polls it — through typed, validated tools:
 `create_connection` · `list_connections` · `trigger_sync` · `list_jobs` ·
 `get_job` · `cancel_job` · `get_connection_state`
 
+## 🧩 Connectors without containers
+
+Describe an HTTP API in a manifest; gaussdataflow runs it as a **native
+source** — no container, no glue code:
+
+```yaml
+requester:
+  url_base: https://api.example.com
+  authenticator: { type: bearer, api_token: "{{ config.api_key }}" }
+streams:
+  - name: orders
+    path: /v1/orders
+    record_selector: data
+    primary_key: [id]
+    cursor_field: updated_at          # incremental sync, checkpointed
+    paginator: { type: offset, page_size: 100 }
+```
+
+Register the `gauss-declarative` binary once (`exec:/path/to/gauss-declarative`);
+every source configured from it carries its own manifest plus credentials —
+secrets sealed like any other connector. Auth (api-key/bearer/basic),
+offset/page/cursor pagination, and high-water-mark incremental cursors are
+built in.
+
+Need full control? Implement two traits with **`gauss-cdk`** and you have a
+protocol-correct connector binary — `spec/check/discover/read/write` argument
+handling, wire output, error-to-trace conversion, and exit codes all come
+from the runner:
+
+```rust
+#[async_trait::async_trait]
+impl gauss_cdk::Source for MyApi { /* spec, check, discover, read */ }
+
+#[tokio::main]
+async fn main() -> std::process::ExitCode {
+    gauss_cdk::cli::run_source(MyApi).await
+}
+```
+
 ## Architecture
 
 ```
@@ -157,8 +198,10 @@ schedule, triggers the job, and polls it — through typed, validated tools:
 | `gauss-orchestrator` | Job execution, retries, heartbeats, schedules, cancellation |
 | `gauss-server` | REST control plane (+ embedded worker with `--worker`) |
 | `gauss-mcp` | MCP gateway for AI agents (stdio) |
+| `gauss-cdk` | Connector Development Kit: `Source`/`Destination` traits + a runner that yields a complete connector binary |
+| `gauss-declarative` | Low-code engine: YAML manifests → native HTTP-API sources (auth, pagination, incremental) |
 | `gauss-cli` | Connector dev loop |
-| `gauss-mock-connector` | Reference connector (source + destination) powering the hermetic e2e suite |
+| `gauss-mock-connector` | Reference connector built on the CDK; powers the hermetic e2e suite |
 
 ## Reliability, tested
 
@@ -176,9 +219,8 @@ DATABASE_URL=postgres://… cargo test --workspace
 
 ## Roadmap
 
-Native (container-free) Rust connector SDK, declarative low-code connectors,
-OAuth flows, RBAC, vault-backed secrets, and benchmarks — see
-[docs/STRATEGY.md](docs/STRATEGY.md).
+OAuth flows, RBAC, audit trails, vault-backed secrets, and performance
+benchmarks — see [docs/STRATEGY.md](docs/STRATEGY.md).
 
 ## License
 

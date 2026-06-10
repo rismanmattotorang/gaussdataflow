@@ -1,24 +1,27 @@
 [package]
-name = "gauss-mock-connector"
-description = "Reference connector built on gauss-cdk (source + destination); powers the hermetic e2e suite"
+name = "gauss-declarative"
+description = "Low-code connector engine: runs declarative YAML/JSON manifests as native sources, no containers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "gauss-mock-connector"
+name = "gauss-declarative"
 path = "src/main.rs"
 
 [dependencies]
 async-trait = { workspace = true }
+base64 = { workspace = true }
 gauss-cdk = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
+axum = { workspace = true }
 gauss-connector-runtime = { workspace = true }
-gauss-protocol = { workspace = true }
-gauss-sync = { workspace = true }
 tempfile = { workspace = true }

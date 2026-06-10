@@ -151,15 +151,33 @@ retries transient failures, and honors cancellation.
 monitored sync entirely in the browser; an MCP agent can do the same flow
 end-to-end through the gateway (covered by integration tests).
 
-### Phase 5 — Rust CDK & declarative connectors
-- Extract `gauss-cdk` from the mock connector: traits for `Source`
-  (`spec/check/discover/read`) and `Destination` (`spec/check/write`), state
-  helpers, schema helpers, test harness
-- Interpreter for Airbyte's declarative (low-code YAML) manifests — this
-  unlocks the hundreds of manifest-only connectors *natively in Rust*, no
-  Python runtime
-- Native (non-Docker) execution path for Rust connectors: in-process or
-  subprocess, 10–100× lighter than container-per-sync
+### Phase 5 — Rust CDK & declarative connectors (done)
+- [x] `gauss-cdk` extracted from the reference connector: async `Source`
+      (`spec/check/discover/read`) and `Destination` (`spec/check/write`)
+      traits, an `Emitter` with protocol helpers (records, per-stream state,
+      stream-status/error traces) and a capture mode for connector tests,
+      state-input helpers, and a CLI runner that turns any impl into a
+      complete connector binary with correct wire behavior (check failures →
+      FAILED status, read failures → ERROR trace + exit 1)
+- [x] Reference connector (`gauss-mock-connector`) rewritten on the CDK —
+      all pre-existing e2e/sync tests pass unchanged, proving the extraction
+      is wire-faithful
+- [x] `gauss-declarative`: low-code manifest engine — one registered binary
+      (`exec:gauss-declarative`) runs any HTTP-API source described by a
+      YAML/JSON manifest carried in the connector config (`manifest` key,
+      flowing through the registry/secret-envelope/launcher machinery
+      untouched). v0 scope: api-key/bearer/basic auth, `{{ config.* }}`
+      interpolation (unknown refs are hard errors), dot-path record
+      selectors, offset/page/cursor-token pagination, per-stream
+      `cursor_field` incremental sync with high-water-mark checkpoints
+- [x] Native (non-Docker) execution path: the `exec:` launcher scheme
+      (landed in Phase 3) is now the production path for CDK and declarative
+      connectors — no container per sync
+
+**Exit criteria (met):** a manifest-only connector registered via `exec:`
+syncs a live HTTP API through the full platform (check → discover →
+scheduled job → records delivered → cursor checkpointed → second sync reads
+zero), with no container anywhere in the pipeline.
 
 ### Phase 6 — Parity & hardening
 - OAuth flows for connectors, RBAC/multi-workspace, notifications/webhooks
