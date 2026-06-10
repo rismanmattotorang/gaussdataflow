@@ -294,6 +294,113 @@ footer {
   font-size: 0.9rem;
 }
 
+/* ---- dashboard stats ---- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+}
+.stat-card .stat-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stat-card .stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0.15rem 0;
+}
+.stat-card .stat-detail {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.stat-card.ok .stat-value {
+  color: var(--ok);
+}
+.stat-card.warn .stat-value {
+  color: var(--pending);
+}
+.stat-card.err .stat-value {
+  color: var(--err);
+}
+
+/* ---- breadcrumbs ---- */
+.breadcrumbs {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.breadcrumbs .sep {
+  margin: 0 0.45rem;
+  opacity: 0.6;
+}
+
+/* ---- toasts ---- */
+.toast-stack {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  display: grid;
+  gap: 0.5rem;
+  z-index: 50;
+  max-width: 24rem;
+}
+.toast {
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.18s ease-out;
+}
+.toast.ok {
+  border-color: rgba(74, 222, 128, 0.4);
+}
+.toast.err {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: var(--err);
+}
+@keyframes toast-in {
+  from {
+    transform: translateY(0.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ---- job attempt drill-down ---- */
+tr.attempt-row > td {
+  background: var(--panel);
+  padding: 0.75rem 1rem;
+}
+table.attempts {
+  font-size: 0.85rem;
+  width: auto;
+  min-width: 50%;
+}
+table.attempts th,
+table.attempts td {
+  padding: 0.35rem 1.25rem 0.35rem 0;
+  border-bottom: none;
+}
+
 code,
 pre {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;

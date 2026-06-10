@@ -53,9 +53,10 @@ and JVMs burn memory. Gauss-DataFlow is built for what comes next:
 
 | | |
 |---|---|
-| **Web console** | Next.js app: workspaces, spec-driven connector setup forms (rendered live from each connector's JSON Schema), stream-level connection builder with discovery, one-click sync, live job monitoring, committed-state inspection |
-| **REST API** | Full control plane at `/api/v1/*`: workspaces, connector registry, sources/destinations (with `check` + `discover`), connections, jobs, state |
-| **MCP gateway** | `gauss-mcp` — 17 tools over stdio; plug into Claude Desktop, Claude Code, or any MCP client |
+| **Web console** | Next.js app: mission-control dashboard (fleet pulse, live activity feed), workspaces, spec-driven connector setup forms (rendered live from each connector's JSON Schema), stream-level connection builder with discovery, one-click sync, live job monitoring with attempt drill-down, committed-state inspection, toasts and guarded deletes |
+| **Terminal console** | `gauss-tui` — a [Ratatui](https://ratatui.rs) console for the whole control plane: fleet stats, workspace tabs, job tables with live refresh, one-key sync/cancel, state inspection — over the same REST API, local or remote |
+| **REST API** | Full control plane at `/api/v1/*`: workspaces, connector registry, sources/destinations (with `check` + `discover`), connections, jobs (incl. cross-connection activity feed), state, and aggregate `stats` |
+| **MCP gateway** | `gauss-mcp` — 19 annotated tools over stdio with structured output and protocol negotiation through `2025-06-18`; plug into Claude Desktop, Claude Code, or any MCP client |
 | **Security & governance** | API tokens with RBAC (admin/editor/viewer), audit log of every mutation, generic OAuth2 plumbing with sealed tokens, secrets in Postgres or HashiCorp Vault |
 | **Orchestrator** | Postgres-backed queue, scheduler (cron + interval), retries, heartbeats, cancellation — embedded in the server (`--worker`) or scaled out as separate processes |
 | **Replication engine** | `gauss-sync` — pipe-backpressured source→destination streaming with destination-acked checkpointing |
@@ -80,10 +81,19 @@ export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/gauss
 
 # 2. Launch the console
 cd web && npm install && npm run dev   # → http://localhost:3000
+
+# …or stay in the terminal
+./target/release/gauss-tui             # → full TUI against http://127.0.0.1:8000
 ```
 
 Create a workspace, add a source and a destination, discover streams, hit
 **Sync now**, and watch the job stream records.
+
+Prefer a terminal dashboard? `gauss-tui` gives you the fleet pulse
+(pipelines, queue depth, 24-hour success/failure, records moved), workspace
+tabs for connections/jobs/sources/destinations, one-key sync triggering and
+job cancellation, attempt history, and committed-state inspection — against
+any deployment: `gauss-tui --api https://gauss.internal:8000 --token gauss_…`.
 
 Prefer the terminal? The whole flow is four `curl`s:
 
@@ -118,11 +128,20 @@ agent browses the registry, configures the source (secrets sealed
 automatically), discovers streams, creates the connection with a cron
 schedule, triggers the job, and polls it — through typed, validated tools:
 
-`list_workspaces` · `create_workspace` · `list_connector_definitions` ·
-`register_connector` · `create_source` · `create_destination` ·
-`list_sources` · `list_destinations` · `check_source` · `discover_source` ·
+`get_platform_stats` · `list_recent_jobs` · `list_workspaces` ·
+`create_workspace` · `list_connector_definitions` · `register_connector` ·
+`create_source` · `create_destination` · `list_sources` ·
+`list_destinations` · `check_source` · `discover_source` ·
 `create_connection` · `list_connections` · `trigger_sync` · `list_jobs` ·
 `get_job` · `cancel_job` · `get_connection_state`
+
+Every tool carries MCP behaviour annotations (`readOnlyHint`,
+`destructiveHint`, `idempotentHint`, `openWorldHint`) so clients can apply
+least-privilege policy, results include `structuredContent` alongside text,
+and initialization negotiates protocol revisions `2024-11-05` through
+`2025-06-18`. The forward plan — streamable HTTP at `/mcp`, OAuth 2.1,
+role-scoped virtual tool surfaces, an AI connector builder targeting the
+declarative engine — lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 🔐 Locked down by default-deny
 
@@ -194,7 +213,7 @@ async fn main() -> std::process::ExitCode {
 
 ```
                    ┌────────────────────────────────────────────────┐
-  humans ──────▶   │  web/            Next.js console               │
+  humans ──────▶   │  web/ console (Next.js) · gauss-tui (Ratatui)  │
                    └──────────────┬─────────────────────────────────┘
                    ┌──────────────▼─────────────────────────────────┐
   agents ──MCP──▶  │  gauss-mcp     │  gauss-server   (axum REST)   │
@@ -231,6 +250,7 @@ async fn main() -> std::process::ExitCode {
 | `gauss-cdk` | Connector Development Kit: `Source`/`Destination` traits + a runner that yields a complete connector binary |
 | `gauss-declarative` | Low-code engine: YAML manifests → native HTTP-API sources (auth, pagination, incremental) |
 | `gauss-cli` | Connector dev loop |
+| `gauss-tui` | Ratatui terminal console: fleet pulse, pipelines, jobs, one-key operations |
 | `gauss-mock-connector` | Reference connector built on the CDK; powers the hermetic e2e suite |
 
 ## Reliability, tested
@@ -258,12 +278,16 @@ cargo test -p gauss-mock-connector --test bench --release -- --ignored --nocaptu
 
 ## Status
 
-All six phases of the founding roadmap have shipped: wire protocol &
+All six phases of the founding roadmap have shipped — wire protocol &
 connector runtime, persistence & sealed secrets, Postgres-native
 orchestration, the web console & MCP gateway, the Rust CDK & declarative
 engine, and enterprise hardening (RBAC, audit, OAuth2, Vault, webhooks,
-import tooling). Architecture and design decisions live in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+import tooling) — plus Phase 7: the `gauss-tui` terminal console, the
+mission-control dashboard, fleet observability APIs, and the
+annotation-rich MCP gateway. Architecture and design decisions live in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the researched forward roadmap
+for the MCP gateway and agentic AI integration lives in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 

@@ -586,3 +586,90 @@ async fn sync_trigger_and_cancel_via_api() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn fleet_stats_and_recent_jobs() {
+    let Some(state) = test_state().await else {
+        return;
+    };
+    let (app, ws_id, source_id, dest_id) = seed_actors(&state).await;
+
+    // Empty fleet: stats exist, activity feed is empty.
+    let (status, stats) = req(&app, "GET", "/api/v1/stats", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(stats["connections"], 0);
+    assert_eq!(stats["sources"], 1);
+    assert_eq!(stats["destinations"], 1);
+    let (status, jobs) = req(&app, "GET", "/api/v1/jobs?limit=10", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(jobs["data"].as_array().unwrap().is_empty());
+
+    // One connection + one triggered sync show up everywhere.
+    let (status, conn) = req(
+        &app,
+        "POST",
+        "/api/v1/connections",
+        Some(json!({
+            "name": "orders → warehouse",
+            "sourceId": source_id,
+            "destinationId": dest_id,
+            "catalog": configured_catalog()
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let conn_id = conn["connectionId"].as_str().unwrap().to_string();
+    let (status, job) = req(
+        &app,
+        "POST",
+        &format!("/api/v1/connections/{conn_id}/sync"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let (status, stats) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/stats?workspaceId={ws_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(stats["connections"], 1);
+    assert_eq!(stats["jobsPending"], 1);
+    assert_eq!(stats["jobsRunning"], 0);
+
+    let (status, recent) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/jobs?workspaceId={ws_id}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let entries = recent["data"].as_array().unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["id"], job["id"]);
+    assert_eq!(entries[0]["connectionName"], "orders → warehouse");
+    assert_eq!(entries[0]["status"], "pending");
+
+    // Scoping to another workspace filters everything out.
+    let other = uuid::Uuid::new_v4();
+    let (_, scoped) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/jobs?workspaceId={other}"),
+        None,
+    )
+    .await;
+    assert!(scoped["data"].as_array().unwrap().is_empty());
+    let (_, scoped) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/stats?workspaceId={other}"),
+        None,
+    )
+    .await;
+    assert_eq!(scoped["connections"], 0);
+}

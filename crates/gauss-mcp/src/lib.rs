@@ -21,7 +21,12 @@ use serde_json::{json, Value};
 
 use gauss_store::Store;
 
-pub const PROTOCOL_VERSION: &str = "2024-11-05";
+/// Protocol revisions this gateway understands, newest first. Initialization
+/// echoes the client's requested revision when supported and otherwise
+/// offers the newest one, per the MCP version-negotiation rules.
+pub const SUPPORTED_PROTOCOL_VERSIONS: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
+
+pub const PROTOCOL_VERSION: &str = SUPPORTED_PROTOCOL_VERSIONS[0];
 
 pub struct Gateway {
     pub(crate) store: Store,
@@ -47,33 +52,51 @@ impl Gateway {
         };
 
         let result = match method {
-            "initialize" => Ok(json!({
-                "protocolVersion": message["params"]["protocolVersion"]
-                    .as_str()
-                    .unwrap_or(PROTOCOL_VERSION),
-                "capabilities": { "tools": {} },
-                "serverInfo": {
-                    "name": "gaussdataflow",
-                    "version": env!("CARGO_PKG_VERSION"),
-                },
-                "instructions": "Manage gaussdataflow data pipelines: browse the \
-                    connector registry, configure sources and destinations, wire \
-                    connections, trigger and monitor syncs.",
-            })),
+            "initialize" => {
+                let requested = message["params"]["protocolVersion"].as_str();
+                let negotiated = requested
+                    .filter(|v| SUPPORTED_PROTOCOL_VERSIONS.contains(v))
+                    .unwrap_or(PROTOCOL_VERSION);
+                Ok(json!({
+                    "protocolVersion": negotiated,
+                    "capabilities": { "tools": { "listChanged": false } },
+                    "serverInfo": {
+                        "name": "gaussdataflow",
+                        "title": "Gauss-DataFlow",
+                        "version": env!("CARGO_PKG_VERSION"),
+                    },
+                    "instructions": "Manage gaussdataflow data pipelines: browse the \
+                        connector registry, configure sources and destinations, wire \
+                        connections, trigger and monitor syncs. Start with \
+                        get_platform_stats for fleet health; tools carry readOnlyHint/\
+                        destructiveHint annotations, so prefer read-only tools when \
+                        exploring.",
+                }))
+            }
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({ "tools": tools::definitions() })),
             "tools/call" => {
                 let name = message["params"]["name"].as_str().unwrap_or_default();
                 let args = message["params"]["arguments"].clone();
                 match self.call_tool(name, args).await {
-                    Ok(value) => Ok(json!({
-                        "content": [{
-                            "type": "text",
-                            "text": serde_json::to_string_pretty(&value)
-                                .unwrap_or_else(|_| value.to_string()),
-                        }],
-                        "isError": false,
-                    })),
+                    Ok(value) => {
+                        // `structuredContent` must be an object (2025-06-18);
+                        // lists are wrapped in a `data` envelope like the REST API.
+                        let structured = if value.is_object() {
+                            value.clone()
+                        } else {
+                            json!({ "data": value })
+                        };
+                        Ok(json!({
+                            "content": [{
+                                "type": "text",
+                                "text": serde_json::to_string_pretty(&value)
+                                    .unwrap_or_else(|_| value.to_string()),
+                            }],
+                            "structuredContent": structured,
+                            "isError": false,
+                        }))
+                    }
                     Err(message) => Ok(json!({
                         "content": [{ "type": "text", "text": message }],
                         "isError": true,

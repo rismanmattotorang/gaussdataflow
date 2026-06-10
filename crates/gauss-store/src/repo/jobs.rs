@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::StoreError;
-use crate::models::{Attempt, Job};
+use crate::models::{Attempt, Job, JobOverview, PlatformStats};
 
 pub struct JobRepo<'a> {
     pub(crate) pool: &'a PgPool,
@@ -64,6 +64,83 @@ impl JobRepo<'_> {
         ))
         .bind(connection_id)
         .fetch_all(self.pool)
+        .await?)
+    }
+
+    /// Recent jobs across every connection, newest first, enriched with the
+    /// connection name and latest attempt record count. `workspace_id`
+    /// narrows the view to one workspace.
+    pub async fn list_recent(
+        &self,
+        workspace_id: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Vec<JobOverview>, StoreError> {
+        Ok(sqlx::query_as::<_, JobOverview>(
+            "SELECT j.id, j.connection_id, c.name AS connection_name, c.workspace_id,
+                    j.job_type, j.status, j.scheduled_at, j.started_at, j.completed_at,
+                    j.cancel_requested, j.created_at, j.updated_at,
+                    (SELECT a.records_synced FROM attempts a
+                     WHERE a.job_id = j.id
+                     ORDER BY a.attempt_number DESC LIMIT 1) AS records_synced
+             FROM jobs j
+             JOIN connections c ON c.id = j.connection_id
+             WHERE $1::uuid IS NULL OR c.workspace_id = $1
+             ORDER BY j.created_at DESC
+             LIMIT $2",
+        )
+        .bind(workspace_id)
+        .bind(limit.clamp(1, 500))
+        .fetch_all(self.pool)
+        .await?)
+    }
+
+    /// Aggregate fleet health in one round trip, optionally scoped to a
+    /// workspace.
+    pub async fn platform_stats(
+        &self,
+        workspace_id: Option<Uuid>,
+    ) -> Result<PlatformStats, StoreError> {
+        Ok(sqlx::query_as::<_, PlatformStats>(
+            "SELECT
+                (SELECT count(*) FROM workspaces w
+                 WHERE $1::uuid IS NULL OR w.id = $1)                          AS workspaces,
+                (SELECT count(*) FROM actors a
+                 WHERE a.actor_type = 'source'
+                   AND ($1::uuid IS NULL OR a.workspace_id = $1))              AS sources,
+                (SELECT count(*) FROM actors a
+                 WHERE a.actor_type = 'destination'
+                   AND ($1::uuid IS NULL OR a.workspace_id = $1))              AS destinations,
+                (SELECT count(*) FROM connections c
+                 WHERE $1::uuid IS NULL OR c.workspace_id = $1)                AS connections,
+                (SELECT count(*) FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE $1::uuid IS NULL OR c.workspace_id = $1)                AS jobs_total,
+                (SELECT count(*) FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE j.status = 'pending'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS jobs_pending,
+                (SELECT count(*) FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE j.status = 'running'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS jobs_running,
+                (SELECT count(*) FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE j.status = 'succeeded'
+                   AND j.completed_at > now() - interval '24 hours'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS jobs_succeeded_24h,
+                (SELECT count(*) FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE j.status = 'failed'
+                   AND j.completed_at > now() - interval '24 hours'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS jobs_failed_24h,
+                (SELECT COALESCE(sum(a.records_synced), 0)::bigint
+                 FROM attempts a
+                 JOIN jobs j ON j.id = a.job_id
+                 JOIN connections c ON c.id = j.connection_id
+                 WHERE a.ended_at > now() - interval '24 hours'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS records_synced_24h,
+                (SELECT max(j.completed_at)
+                 FROM jobs j JOIN connections c ON c.id = j.connection_id
+                 WHERE j.status = 'succeeded'
+                   AND ($1::uuid IS NULL OR c.workspace_id = $1))              AS last_success_at",
+        )
+        .bind(workspace_id)
+        .fetch_one(self.pool)
         .await?)
     }
 

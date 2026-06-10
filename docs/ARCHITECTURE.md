@@ -33,7 +33,7 @@ Consequences:
 
 ```
                    ┌────────────────────────────────────────────────┐
-  humans ──────▶   │  web/            Next.js console               │
+  humans ──────▶   │  web/ console (Next.js) · gauss-tui (Ratatui)  │
                    └──────────────┬─────────────────────────────────┘
                    ┌──────────────▼─────────────────────────────────┐
   agents ──MCP──▶  │  gauss-mcp     │  gauss-server   (axum REST)   │
@@ -68,6 +68,7 @@ Consequences:
 | `gauss-cdk` | Connector Development Kit (`Source`/`Destination` traits + binary runner) |
 | `gauss-declarative` | Low-code engine: YAML manifests → native HTTP-API sources |
 | `gauss-cli` | Connector dev loop (`spec/check/discover/read`) |
+| `gauss-tui` | Ratatui terminal console over the REST API (fleet pulse, pipelines, jobs, one-key sync/cancel) |
 | `gauss-mock-connector` | Reference connector; hermetic e2e fixture |
 
 ## 3. Key design decisions
@@ -120,6 +121,10 @@ Consequences:
 | 4 | Web console, MCP gateway, registry tooling |
 | 5 | Rust CDK, declarative low-code engine, container-free execution |
 | 6 | RBAC tokens, audit, OAuth2, Vault, webhooks, import, benchmarks |
+| 7 | Operator experience: `gauss-tui` (Ratatui), mission-control web dashboard, fleet stats & activity APIs (`/api/v1/stats`, `/api/v1/jobs`), MCP tool annotations + structured output + version negotiation |
+
+The forward roadmap (MCP streamable HTTP & OAuth 2.1, gateway governance,
+agentic data engineering) is in [ROADMAP.md](ROADMAP.md).
 
 ## 7. Licensing
 
