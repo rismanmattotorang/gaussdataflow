@@ -595,6 +595,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "gauss-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "gauss-connector-runtime",
+ "gauss-secrets",
+ "gauss-store",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "gauss-mock-connector"
 version = "0.1.0"
 dependencies = [

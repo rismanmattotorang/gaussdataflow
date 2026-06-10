@@ -13,6 +13,7 @@ pub use state::AppState;
 
 use axum::routing::{get, post};
 use axum::Router;
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
 pub fn app(state: AppState) -> Router {
@@ -49,6 +50,10 @@ pub fn app(state: AppState) -> Router {
         .route(
             "/api/v1/sources/{id}/check",
             post(api::actors::check_source),
+        )
+        .route(
+            "/api/v1/sources/{id}/discover",
+            post(api::actors::discover_source),
         )
         .route(
             "/api/v1/destinations",
@@ -89,5 +94,9 @@ pub fn app(state: AppState) -> Router {
         .route("/api/v1/jobs/{id}", get(api::jobs::get_one))
         .route("/api/v1/jobs/{id}/cancel", post(api::jobs::cancel))
         .layer(TraceLayer::new_for_http())
+        // The web app is served from its own origin (Next.js dev server or a
+        // static host); the API is token-less and self-hosted, so permissive
+        // CORS is the Phase-4 posture. AuthN/Z tightens this in Phase 6.
+        .layer(CorsLayer::permissive())
         .with_state(state)
 }

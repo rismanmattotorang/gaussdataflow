@@ -214,6 +214,9 @@ async fn registry_import_is_idempotent() {
     let app = gauss_server::app(state);
     let seed: Value = serde_json::from_str(include_str!("../seed/registry.json")).unwrap();
 
+    let n_sources = seed["sources"].as_array().unwrap().len();
+    let n_destinations = seed["destinations"].as_array().unwrap().len();
+
     for _ in 0..2 {
         let (status, summary) = req(
             &app,
@@ -223,14 +226,14 @@ async fn registry_import_is_idempotent() {
         )
         .await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(summary["sourcesImported"], 3);
-        assert_eq!(summary["destinationsImported"], 2);
+        assert_eq!(summary["sourcesImported"], n_sources);
+        assert_eq!(summary["destinationsImported"], n_destinations);
     }
 
     let (_, sources) = req(&app, "GET", "/api/v1/source_definitions", None).await;
-    assert_eq!(sources["data"].as_array().unwrap().len(), 3);
+    assert_eq!(sources["data"].as_array().unwrap().len(), n_sources);
     let (_, dests) = req(&app, "GET", "/api/v1/destination_definitions", None).await;
-    assert_eq!(dests["data"].as_array().unwrap().len(), 2);
+    assert_eq!(dests["data"].as_array().unwrap().len(), n_destinations);
 }
 
 #[tokio::test]

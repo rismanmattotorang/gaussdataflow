@@ -126,12 +126,30 @@ replicates source→destination with mid-flight checkpoints, persists resumable
 per-stream state (verified: second sync reads zero already-synced records),
 retries transient failures, and honors cancellation.
 
-### Phase 4 — Web app (Next.js)
-- App Router + React Server Components against `gauss-server`
-- Core flows in order: connector setup (spec-driven JSON-schema forms — the
-  hardest UI piece), connection create/edit (stream selection, sync modes),
-  job history + live logs (SSE), workspace settings
-- Typed API client generated from the server's OpenAPI document
+### Phase 4 — Web app & MCP gateway (done)
+- [x] Next.js console (App Router, hand-rolled design system, no UI-kit
+      dependency): workspace dashboard, spec-driven connector setup forms
+      rendered live from each definition's `connectionSpecification` JSON
+      Schema (secrets as password fields, defaults, required markers, nested
+      objects), "test & save" running the connector's `check`, connection
+      builder with source `discover` + stream/sync-mode selection +
+      interval/cron schedules, connection detail with one-click sync,
+      polling job monitor, cancellation, and committed-state inspection
+- [x] Hand-written typed API client (`web/lib/api.ts`); OpenAPI generation
+      deferred to Phase 6
+- [x] Server support: `POST /sources/{id}/discover`, permissive CORS (until
+      Phase-6 authn), `check`/`discover` honor the `exec:` launcher scheme
+- [x] **MCP gateway** (`gauss-mcp`): the control plane as Model Context
+      Protocol tools over stdio — 17 tools covering registry, actors
+      (including live `check_source`/`discover_source`), connections, syncs,
+      jobs, and state; same secret envelope as the API
+- [x] Connector registry seed expanded to 35+ popular sources/destinations
+      (Postgres, MySQL, MongoDB, Stripe, Salesforce, Shopify, BigQuery,
+      Snowflake, ClickHouse, Pinecone, …)
+
+**Exit criteria (met):** a user can go from empty database to a running,
+monitored sync entirely in the browser; an MCP agent can do the same flow
+end-to-end through the gateway (covered by integration tests).
 
 ### Phase 5 — Rust CDK & declarative connectors
 - Extract `gauss-cdk` from the mock connector: traits for `Source`
