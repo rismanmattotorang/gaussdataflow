@@ -38,8 +38,8 @@ const phases = [
   {
     id: 6,
     name: "Enterprise hardening",
-    status: "next",
-    desc: "OAuth, RBAC, audit, vault-backed secrets, benchmarks",
+    status: "done",
+    desc: "API tokens + RBAC, audit log, OAuth2, Vault secrets, webhooks, import",
   },
 ] as const;
 

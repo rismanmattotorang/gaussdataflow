@@ -77,7 +77,7 @@ impl Orchestrator {
         heartbeat.abort();
         cancel_watcher.abort();
 
-        match result {
+        let outcome = match result {
             Ok((summary, final_state)) => {
                 let _ = self
                     .store
@@ -129,6 +129,48 @@ impl Orchestrator {
                     self.finish(&job, "failed", 0, attempt.attempt_number).await
                 }
             }
+        };
+        if outcome.status != "pending" {
+            self.notify(&job, &outcome).await;
+        }
+        outcome
+    }
+
+    /// Best-effort webhook on terminal jobs, when the connection configures
+    /// `notifications.webhookUrl`.
+    async fn notify(&self, job: &Job, outcome: &JobOutcome) {
+        let Ok(connection) = self.store.connections().get(job.connection_id).await else {
+            return;
+        };
+        let Some(url) = connection
+            .notifications
+            .as_ref()
+            .and_then(|n| n.0.get("webhookUrl"))
+            .and_then(Value::as_str)
+        else {
+            return;
+        };
+        let payload = serde_json::json!({
+            "event": "job.completed",
+            "jobId": outcome.job_id,
+            "connectionId": job.connection_id,
+            "connectionName": connection.name,
+            "status": outcome.status,
+            "recordsSynced": outcome.records_synced,
+            "attempt": outcome.attempt_number,
+        });
+        let result = reqwest::Client::new()
+            .post(url)
+            .timeout(std::time::Duration::from_secs(10))
+            .json(&payload)
+            .send()
+            .await;
+        match result {
+            Ok(response) if !response.status().is_success() => {
+                tracing::warn!(job = job.id, status = %response.status(), "webhook rejected");
+            }
+            Err(err) => tracing::warn!(job = job.id, %err, "webhook delivery failed"),
+            _ => {}
         }
     }
 

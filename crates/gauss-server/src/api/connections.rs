@@ -20,6 +20,7 @@ pub struct CreateConnection {
     /// ConfiguredAirbyteCatalog wire form.
     pub catalog: Value,
     pub schedule: Option<Value>,
+    pub notifications: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -29,6 +30,7 @@ pub struct UpdateConnection {
     pub status: Option<ConnectionStatus>,
     pub catalog: Option<Value>,
     pub schedule: Option<Value>,
+    pub notifications: Option<Value>,
 }
 
 fn validate_catalog(catalog: &Value) -> Result<(), ApiError> {
@@ -69,6 +71,7 @@ pub async fn create(
             name: body.name,
             catalog: body.catalog,
             schedule: body.schedule,
+            notifications: body.notifications,
         })
         .await?;
     Ok((StatusCode::CREATED, Json(connection)))
@@ -108,6 +111,7 @@ pub async fn update(
                 status: body.status,
                 catalog: body.catalog,
                 schedule: body.schedule,
+                notifications: body.notifications,
             },
         )
         .await?;

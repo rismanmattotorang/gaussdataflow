@@ -2,7 +2,9 @@ pub mod actors;
 pub mod connections;
 pub mod definitions;
 mod error;
+pub mod governance;
 pub mod jobs;
+pub mod oauth;
 pub mod workspaces;
 
 pub use error::ApiError;

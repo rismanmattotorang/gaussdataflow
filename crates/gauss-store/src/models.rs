@@ -4,7 +4,7 @@ use serde_json::Value;
 use sqlx::types::Json;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "actor_type", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum ActorType {
@@ -129,6 +129,9 @@ pub struct Connection {
     pub catalog: Json<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schedule: Option<Json<Value>>,
+    /// e.g. `{"webhookUrl": "https://..."}` — posted on job completion.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notifications: Option<Json<Value>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

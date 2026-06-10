@@ -13,6 +13,7 @@ mod secrets_backend;
 pub use error::StoreError;
 pub use models::*;
 pub use repo::connections::{ConnectionPatch, NewConnection};
+pub use repo::governance::{ApiToken, AuditEntry};
 pub use repo::{actors::NewActor, definitions::NewDefinition};
 pub use secrets_backend::PgSecretsBackend;
 
@@ -63,6 +64,14 @@ impl Store {
 
     pub fn connection_states(&self) -> repo::states::ConnectionStateRepo<'_> {
         repo::states::ConnectionStateRepo { pool: &self.pool }
+    }
+
+    pub fn tokens(&self) -> repo::governance::TokenRepo<'_> {
+        repo::governance::TokenRepo { pool: &self.pool }
+    }
+
+    pub fn audit(&self) -> repo::governance::AuditRepo<'_> {
+        repo::governance::AuditRepo { pool: &self.pool }
     }
 
     /// Secrets backend persisting into this store's `secrets` table.

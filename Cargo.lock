@@ -667,12 +667,14 @@ dependencies = [
 name = "gauss-orchestrator"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "cron",
  "gauss-connector-runtime",
  "gauss-secrets",
  "gauss-store",
  "gauss-sync",
+ "reqwest",
  "serde_json",
  "sqlx",
  "tempfile",
@@ -695,6 +697,8 @@ name = "gauss-secrets"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
+ "reqwest",
  "serde_json",
  "thiserror",
  "tokio",
@@ -714,10 +718,13 @@ dependencies = [
  "gauss-secrets",
  "gauss-store",
  "http-body-util",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tempfile",
+ "thiserror",
  "tokio",
  "tower",
  "tower-http",

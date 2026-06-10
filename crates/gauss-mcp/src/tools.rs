@@ -317,6 +317,10 @@ impl Gateway {
                                 .cloned()
                                 .ok_or("missing required argument `catalog`")?,
                             schedule: args.get("schedule").filter(|s| !s.is_null()).cloned(),
+                            notifications: args
+                                .get("notifications")
+                                .filter(|s| !s.is_null())
+                                .cloned(),
                         })
                         .await
                         .map_err(err)?,

@@ -6,6 +6,8 @@
 //! are returned in redacted form with `{"_secret": id}` references.
 
 pub mod api;
+pub mod auth;
+pub mod import;
 pub mod registry;
 mod state;
 
@@ -93,6 +95,24 @@ pub fn app(state: AppState) -> Router {
         )
         .route("/api/v1/jobs/{id}", get(api::jobs::get_one))
         .route("/api/v1/jobs/{id}/cancel", post(api::jobs::cancel))
+        .route(
+            "/api/v1/tokens",
+            post(api::governance::create_token).get(api::governance::list_tokens),
+        )
+        .route(
+            "/api/v1/tokens/{id}",
+            axum::routing::delete(api::governance::delete_token),
+        )
+        .route("/api/v1/audit", get(api::governance::list_audit))
+        .route(
+            "/api/v1/oauth/authorize_url",
+            post(api::oauth::authorize_url),
+        )
+        .route("/api/v1/oauth/complete", post(api::oauth::complete))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            auth::layer,
+        ))
         .layer(TraceLayer::new_for_http())
         // The web app is served from its own origin (Next.js dev server or a
         // static host); the API is token-less and self-hosted, so permissive

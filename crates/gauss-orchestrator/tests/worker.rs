@@ -125,6 +125,7 @@ async fn fixture(store: &Store, source_repo: &str, record_count: u64) -> Fixture
                 }]
             }),
             schedule: None,
+            notifications: None,
         })
         .await
         .unwrap();
@@ -323,4 +324,65 @@ fn schedule_evaluation() {
     // Garbage rejected.
     assert!(next_due(&json!({"cron": "not a cron"}), Some(last)).is_err());
     assert!(next_due(&json!({}), Some(last)).is_err());
+}
+
+#[tokio::test]
+async fn webhook_fires_on_terminal_job() {
+    let Some(store) = test_store().await else {
+        return;
+    };
+    let Some(bin) = mock_connector_bin() else {
+        eprintln!("mock connector binary not built; skipping");
+        return;
+    };
+
+    // Local webhook receiver forwarding payloads over a channel.
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<serde_json::Value>();
+    let receiver = {
+        use axum::routing::post;
+        let app = axum::Router::new().route(
+            "/hook",
+            post(move |axum::Json(payload): axum::Json<serde_json::Value>| {
+                let tx = tx.clone();
+                async move {
+                    let _ = tx.send(payload);
+                    "ok"
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        format!("http://{addr}/hook")
+    };
+
+    let fx = fixture(&store, &format!("exec:{}", bin.display()), 4).await;
+    store
+        .connections()
+        .update(
+            fx.connection_id,
+            &gauss_store::ConnectionPatch {
+                notifications: Some(json!({"webhookUrl": receiver})),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    let orch = orchestrator(&store);
+    store.jobs().create(fx.connection_id, "sync").await.unwrap();
+    let outcome = orch.run_pending_once().await.unwrap().unwrap();
+    assert_eq!(outcome.status, "succeeded");
+
+    let payload = tokio::time::timeout(Duration::from_secs(5), rx.recv())
+        .await
+        .expect("webhook delivered")
+        .unwrap();
+    assert_eq!(payload["event"], "job.completed");
+    assert_eq!(payload["status"], "succeeded");
+    assert_eq!(payload["recordsSynced"], 4);
+    assert_eq!(
+        payload["connectionId"].as_str().unwrap(),
+        fx.connection_id.to_string()
+    );
 }

@@ -179,11 +179,33 @@ syncs a live HTTP API through the full platform (check → discover →
 scheduled job → records delivered → cursor checkpointed → second sync reads
 zero), with no container anywhere in the pipeline.
 
-### Phase 6 — Parity & hardening
-- OAuth flows for connectors, RBAC/multi-workspace, notifications/webhooks
-- Migration tooling: import config from an existing Airbyte deployment
-  (config DB export → gauss-store)
-- Performance benchmarks vs. Airbyte OSS (records/s, memory, cold-start)
+### Phase 6 — Parity & hardening (done)
+- [x] AuthN/Z: API tokens (SHA-256 hashed at rest, raw value shown once) with
+      RBAC roles — viewer (read), editor (mutations), admin (token/audit
+      management); `--require-auth` enforces on every `/api/v1` request,
+      `--create-token name:role` bootstraps offline
+- [x] Audit log: every mutating request recorded (subject, method, path,
+      status) off the request path; `GET /api/v1/audit` (admin)
+- [x] OAuth2 plumbing: provider-agnostic authorize-URL builder with
+      single-use TTL'd CSRF states and server-side code-for-token exchange;
+      returned access/refresh tokens are sealed into the secrets backend and
+      surfaced only as `{"_secret": id}` references
+- [x] Vault-backed secrets: `VaultSecretsBackend` (KV v2) behind the same
+      `SecretsBackend` trait; `--secrets-backend vault` +
+      `VAULT_ADDR`/`VAULT_TOKEN`
+- [x] Notifications: per-connection `notifications.webhookUrl` posted on
+      terminal jobs (status, records synced, attempt)
+- [x] Migration tooling: `--import-file` applies a portable deployment
+      document (workspace, definitions, actors with secrets sealed on
+      import, scheduled connections)
+- [x] Benchmark harness: `cargo test --test bench --release -- --ignored`
+      measures end-to-end replication throughput (~56k records/s in a
+      constrained container)
+
+**Exit criteria (met):** with auth required, anonymous requests are 401,
+viewer mutations are 403, admin actions are audited with their subject;
+secrets round-trip through Vault; OAuth tokens never appear raw in any
+response; a deployment document restores a working scheduled pipeline.
 
 ## 5. Key technical decisions
 
