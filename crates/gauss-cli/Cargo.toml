@@ -1,0 +1,22 @@
+[package]
+name = "gauss-cli"
+description = "gauss — connector dev loop CLI: spec, check, discover, read"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gauss"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+gauss-connector-runtime = { workspace = true }
+gauss-protocol = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

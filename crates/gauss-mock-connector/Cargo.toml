@@ -1,0 +1,24 @@
+[package]
+name = "gauss-mock-connector"
+description = "A protocol-complete Airbyte source written in Rust; e2e test fixture and seed of the Phase-5 CDK"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gauss-mock-connector"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+gauss-protocol = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+gauss-connector-runtime = { workspace = true }
+gauss-sync = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
