@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ gaussdataflow
+# ⚡ Gauss-DataFlow
 
 **The data movement platform for the agentic era.**
 
@@ -14,7 +14,7 @@ AI agents through a native MCP gateway.
 
 ---
 
-## Why gaussdataflow
+## Why Gauss-DataFlow
 
 Data integration platforms were built for a world where humans click buttons
 and JVMs burn memory. gaussdataflow is built for what comes next:
