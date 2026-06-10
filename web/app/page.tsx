@@ -1,84 +1,65 @@
-const phases = [
-  {
-    id: 0,
-    name: "Foundations",
-    status: "done",
-    desc: "Monorepo, CI, strategy, protocol target pinned",
-  },
-  {
-    id: 1,
-    name: "Protocol & connector runtime",
-    status: "done",
-    desc: "gauss-protocol, Docker/process runtime, gauss CLI, mock connector",
-  },
-  {
-    id: 2,
-    name: "Persistence & Config API",
-    status: "done",
-    desc: "Postgres + sqlx, axum config API, secret envelope, connector registry",
-  },
-  {
-    id: 3,
-    name: "Orchestration & sync",
-    status: "done",
-    desc: "Postgres job queue, replication worker, checkpointing, schedules",
-  },
-  {
-    id: 4,
-    name: "Web app",
-    status: "next",
-    desc: "Connection builder, spec-driven forms, job monitoring (this app)",
-  },
-  {
-    id: 5,
-    name: "Rust CDK & declarative connectors",
-    status: "later",
-    desc: "Native connector SDK, low-code manifest interpreter",
-  },
-  {
-    id: 6,
-    name: "Parity & hardening",
-    status: "later",
-    desc: "OAuth, RBAC, migration tooling, benchmarks",
-  },
-] as const;
+"use client";
 
-const badgeLabel = { done: "done", next: "up next", later: "planned" } as const;
+import Link from "next/link";
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { ErrorNote, timeAgo, usePoll } from "@/components/ui";
 
-export default function Home() {
+export default function Dashboard() {
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const { data: workspaces, error, refresh } = usePoll(
+    api.workspaces.list,
+    null,
+  );
+
+  async function create() {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      await api.workspaces.create(name.trim());
+      setName("");
+      refresh();
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <main>
-      <h1>
-        gauss<span>dataflow</span>
-      </h1>
+      <h1>Workspaces</h1>
       <p className="lede">
-        Open-source data integration, rebuilt on Rust and Next.js.
-        Wire-compatible with the Airbyte Protocol, so the existing connector
-        ecosystem runs unchanged: <code>gauss read --image
-        airbyte/source-faker:latest …</code>
+        A workspace holds your sources, destinations, and the connections that
+        move data between them.
       </p>
-      <ul className="phases">
-        {phases.map((phase) => (
-          <li key={phase.id}>
-            <span className={`badge ${phase.status}`}>
-              {badgeLabel[phase.status]}
-            </span>
-            <span>
-              <strong>
-                Phase {phase.id}: {phase.name}
-              </strong>
-              <br />
-              <span className="desc">{phase.desc}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <footer>
-        The UI proper lands in Phase 4. Strategy:{" "}
-        <a href="https://github.com/rismanmattotorang/gaussdataflow/blob/main/docs/STRATEGY.md">
-          docs/STRATEGY.md
-        </a>
-      </footer>
+      <ErrorNote error={error} />
+
+      <div className="form-row">
+        <input
+          placeholder="New workspace name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && create()}
+          style={{ maxWidth: "20rem" }}
+        />
+        <button onClick={create} disabled={creating || !name.trim()}>
+          Create workspace
+        </button>
+      </div>
+
+      {workspaces?.length === 0 && (
+        <p className="meta">No workspaces yet — create your first one above.</p>
+      )}
+      {workspaces?.map((ws) => (
+        <div className="card" key={ws.workspaceId}>
+          <div className="row">
+            <h3>
+              <Link href={`/workspaces/${ws.workspaceId}`}>{ws.name}</Link>
+            </h3>
+            <span className="meta">created {timeAgo(ws.createdAt)}</span>
+          </div>
+        </div>
+      ))}
     </main>
   );
 }

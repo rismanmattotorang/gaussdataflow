@@ -9,7 +9,7 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use gauss_connector_runtime::{ConnectorRunner, DockerLauncher};
+use gauss_connector_runtime::{resolve_launcher, ConnectorRunner};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -144,12 +144,12 @@ async fn delete(state: AppState, actor_type: ActorType, id: Uuid) -> Result<Stat
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Hydrate the stored config and run the connector's `check` operation.
-async fn check(
-    state: AppState,
+/// Stage the actor's hydrated config and build its connector runner.
+async fn prepare_runner(
+    state: &AppState,
     actor_type: ActorType,
     id: Uuid,
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<(ConnectorRunner, tempfile::TempDir, std::path::PathBuf), ApiError> {
     let actor = state.store.actors().get(id, actor_type).await?;
     let definition = state.store.definitions().get(actor.definition_id).await?;
 
@@ -160,14 +160,30 @@ async fn check(
     let config_path = staging.path().join("config.json");
     tokio::fs::write(&config_path, serde_json::to_vec(&hydrated)?).await?;
 
-    let image = format!(
-        "{}:{}",
-        definition.docker_repository, definition.docker_image_tag
-    );
-    let runner = ConnectorRunner::new(DockerLauncher::new(image));
-    let status = runner.check(&config_path).await?;
+    let launcher = resolve_launcher(&definition.docker_repository, &definition.docker_image_tag);
+    Ok((ConnectorRunner::new(launcher), staging, config_path))
+}
 
+/// Hydrate the stored config and run the connector's `check` operation.
+async fn check(
+    state: AppState,
+    actor_type: ActorType,
+    id: Uuid,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (runner, _staging, config_path) = prepare_runner(&state, actor_type, id).await?;
+    let status = runner.check(&config_path).await?;
     Ok(Json(serde_json::to_value(&status)?))
+}
+
+/// Run the source's `discover` operation: the stream catalog the UI's
+/// connection builder selects from.
+pub async fn discover_source(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (runner, _staging, config_path) = prepare_runner(&state, ActorType::Source, id).await?;
+    let catalog = runner.discover(&config_path).await?;
+    Ok(Json(serde_json::to_value(&catalog)?))
 }
 
 impl From<serde_json::Error> for ApiError {
