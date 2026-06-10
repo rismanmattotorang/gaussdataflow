@@ -6,17 +6,17 @@ fn pg_like_schema() -> serde_json::Value {
         "type": "object",
         "properties": {
             "host": {"type": "string"},
-            "password": {"type": "string", "airbyte_secret": true},
+            "password": {"type": "string", "gauss_secret": true},
             "tunnel": {
                 "type": "object",
                 "properties": {
-                    "ssh_key": {"type": "string", "airbyte_secret": true},
+                    "ssh_key": {"type": "string", "gauss_secret": true},
                     "port": {"type": "integer"}
                 }
             },
             "auth": {
                 "oneOf": [
-                    {"properties": {"method": {"const": "token"}, "token": {"type": "string", "airbyte_secret": true}}},
+                    {"properties": {"method": {"const": "token"}, "token": {"type": "string", "gauss_secret": true}}},
                     {"properties": {"method": {"const": "none"}}}
                 ]
             }
@@ -107,4 +107,16 @@ fn collect_refs_finds_nested_references() {
     let mut refs = collect_refs(&config);
     refs.sort();
     assert_eq!(refs, vec!["id-1", "id-2", "id-3"]);
+}
+
+#[test]
+fn legacy_secret_keyword_still_recognized() {
+    // Third-party connector specs mark secrets with the legacy keyword;
+    // sealing must work for them unchanged.
+    let schema = json!({"type": "object", "properties": {
+        "password": {"type": "string", "airbyte_secret": true}
+    }});
+    let (redacted, secrets) = split_config(&schema, &json!({"password": "legacy"}));
+    assert_eq!(secrets.len(), 1);
+    assert!(redacted["password"]["_secret"].is_string());
 }

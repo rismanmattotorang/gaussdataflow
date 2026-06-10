@@ -48,7 +48,7 @@ impl Emitter {
         (Self::new(Box::new(Shared(shared.clone()))), shared)
     }
 
-    pub fn parse_buffer(buffer: &Arc<Mutex<Vec<u8>>>) -> Vec<AirbyteMessage> {
+    pub fn parse_buffer(buffer: &Arc<Mutex<Vec<u8>>>) -> Vec<GaussMessage> {
         String::from_utf8_lossy(&buffer.lock().unwrap())
             .lines()
             .filter(|l| !l.trim().is_empty())
@@ -56,7 +56,7 @@ impl Emitter {
             .collect()
     }
 
-    pub fn message(&mut self, message: &AirbyteMessage) -> Result<(), crate::CdkError> {
+    pub fn message(&mut self, message: &GaussMessage) -> Result<(), crate::CdkError> {
         let line = to_wire(message)?;
         writeln!(self.out, "{line}")?;
         self.out.flush()?;
@@ -69,7 +69,7 @@ impl Emitter {
         namespace: Option<&str>,
         data: Value,
     ) -> Result<(), crate::CdkError> {
-        self.message(&AirbyteMessage::record(AirbyteRecordMessage {
+        self.message(&GaussMessage::record(GaussRecordMessage {
             namespace: namespace.map(str::to_string),
             stream: stream.to_string(),
             data,
@@ -85,14 +85,14 @@ impl Emitter {
         state: Value,
         record_count: Option<f64>,
     ) -> Result<(), crate::CdkError> {
-        let mut message = AirbyteStateMessage::stream(AirbyteStreamState {
+        let mut message = GaussStateMessage::stream(GaussStreamState {
             stream_descriptor: StreamDescriptor::new(stream),
             stream_state: Some(state),
         });
-        message.source_stats = record_count.map(|count| AirbyteStateStats {
+        message.source_stats = record_count.map(|count| GaussStateStats {
             record_count: Some(count),
         });
-        self.message(&AirbyteMessage::state(message))
+        self.message(&GaussMessage::state(message))
     }
 
     pub fn stream_status(
@@ -100,9 +100,9 @@ impl Emitter {
         stream: &str,
         status: StreamStatus,
     ) -> Result<(), crate::CdkError> {
-        self.message(&AirbyteMessage::trace(AirbyteTraceMessage::stream_status(
+        self.message(&GaussMessage::trace(GaussTraceMessage::stream_status(
             now_millis() as f64,
-            AirbyteStreamStatusTraceMessage {
+            GaussStreamStatusTraceMessage {
                 stream_descriptor: StreamDescriptor::new(stream),
                 status,
                 reasons: None,
@@ -110,8 +110,8 @@ impl Emitter {
         )))
     }
 
-    pub fn log(&mut self, level: AirbyteLogLevel, text: &str) -> Result<(), crate::CdkError> {
-        self.message(&AirbyteMessage::log(AirbyteLogMessage {
+    pub fn log(&mut self, level: GaussLogLevel, text: &str) -> Result<(), crate::CdkError> {
+        self.message(&GaussMessage::log(GaussLogMessage {
             level,
             message: text.to_string(),
             stack_trace: None,
@@ -123,10 +123,10 @@ impl Emitter {
         message: &str,
         failure_type: FailureType,
     ) -> Result<(), crate::CdkError> {
-        self.message(&AirbyteMessage::trace(AirbyteTraceMessage {
-            trace_type: AirbyteTraceType::Error,
+        self.message(&GaussMessage::trace(GaussTraceMessage {
+            trace_type: GaussTraceType::Error,
             emitted_at: now_millis() as f64,
-            error: Some(AirbyteErrorTraceMessage {
+            error: Some(GaussErrorTraceMessage {
                 message: message.to_string(),
                 internal_message: None,
                 stack_trace: None,

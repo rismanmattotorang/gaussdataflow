@@ -1,6 +1,6 @@
 //! gaussdataflow config API.
 //!
-//! Shape-compatible with Airbyte's public config API where practical
+//! Shape-compatible with Gauss's public config API where practical
 //! (camelCase JSON, `/api/v1/sources`-style resources) so existing tooling
 //! can be adapted cheaply. Secrets never leave the server: configurations
 //! are returned in redacted form with `{"_secret": id}` references.

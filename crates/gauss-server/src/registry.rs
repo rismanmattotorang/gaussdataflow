@@ -1,6 +1,6 @@
 //! Connector-registry ingestion.
 //!
-//! Accepts a registry document shaped like Airbyte's public connector
+//! Accepts a registry document shaped like Gauss's public connector
 //! registry JSON (`{"sources": [...], "destinations": [...]}`); entries are
 //! parsed tolerantly so both the upstream registry format and hand-written
 //! seed files import cleanly. Imports are idempotent upserts keyed on

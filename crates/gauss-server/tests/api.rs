@@ -65,7 +65,7 @@ fn registry_with_secret_spec() -> Value {
             "type": "object",
             "properties": {
                 "host": {"type": "string"},
-                "password": {"type": "string", "airbyte_secret": true}
+                "password": {"type": "string", "gauss_secret": true}
             }
         }
     });

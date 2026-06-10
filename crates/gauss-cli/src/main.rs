@@ -1,10 +1,10 @@
 //! `gauss` — the gaussdataflow connector dev loop.
 //!
-//! Drives any Airbyte-protocol connector, either a Docker image (`--image
-//! airbyte/source-faker:latest`) or a local binary (`--exec ./connector`):
+//! Drives any Gauss-protocol connector, either a Docker image (`--image
+//! example/source-orders:latest`) or a local binary (`--exec ./connector`):
 //!
 //! ```text
-//! gauss spec     --image airbyte/source-faker:latest
+//! gauss spec     --image example/source-orders:latest
 //! gauss check    --image … --config config.json
 //! gauss discover --image … --config config.json
 //! gauss read     --image … --config config.json [--catalog catalog.json | --full-refresh] [--state state.json]
@@ -16,13 +16,13 @@ use std::path::PathBuf;
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use gauss_connector_runtime::{ConnectorRunner, DockerLauncher, ProcessLauncher, ReadEvent};
-use gauss_protocol::{ConfiguredAirbyteCatalog, ConfiguredAirbyteStream};
+use gauss_protocol::{ConfiguredGaussCatalog, ConfiguredGaussStream};
 
 #[derive(Parser)]
 #[command(
     name = "gauss",
     version,
-    about = "gaussdataflow connector dev loop (Airbyte-protocol compatible)"
+    about = "gaussdataflow connector dev loop (Gauss-protocol compatible)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -31,7 +31,7 @@ struct Cli {
 
 #[derive(Args)]
 struct ConnectorArgs {
-    /// Docker image of the connector (e.g. airbyte/source-faker:latest)
+    /// Docker image of the connector (e.g. example/source-orders:latest)
     #[arg(long, conflicts_with = "exec", global = false)]
     image: Option<String>,
     /// Path to a local connector binary instead of a Docker image
@@ -127,11 +127,11 @@ async fn main() -> Result<()> {
                 (Some(path), _) => path,
                 (None, true) => {
                     let discovered = runner.discover(&config).await?;
-                    let configured = ConfiguredAirbyteCatalog {
+                    let configured = ConfiguredGaussCatalog {
                         streams: discovered
                             .streams
                             .into_iter()
-                            .map(ConfiguredAirbyteStream::full_refresh)
+                            .map(ConfiguredGaussStream::full_refresh)
                             .collect(),
                     };
                     let path = _staging.path().join("catalog.json");

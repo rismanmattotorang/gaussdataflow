@@ -1,6 +1,6 @@
 [package]
 name = "gauss-connector-runtime"
-description = "Launches Airbyte-protocol connectors (Docker or local process) and streams typed messages"
+description = "Launches protocol-compatible connectors (Docker or local process) and streams typed messages"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,16 +1,16 @@
-//! Catalogs: what a source can emit (`AirbyteCatalog`, from `discover`) and
-//! what the user chose to sync (`ConfiguredAirbyteCatalog`, input to `read`).
+//! Catalogs: what a source can emit (`GaussCatalog`, from `discover`) and
+//! what the user chose to sync (`ConfiguredGaussCatalog`, input to `read`).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteCatalog {
-    pub streams: Vec<AirbyteStream>,
+pub struct GaussCatalog {
+    pub streams: Vec<GaussStream>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteStream {
+pub struct GaussStream {
     pub name: String,
     /// JSON Schema describing the records of this stream.
     pub json_schema: Value,
@@ -30,7 +30,7 @@ pub struct AirbyteStream {
     pub is_resumable: Option<bool>,
 }
 
-impl AirbyteStream {
+impl GaussStream {
     pub fn new(name: impl Into<String>, json_schema: Value) -> Self {
         Self {
             name: name.into(),
@@ -46,13 +46,13 @@ impl AirbyteStream {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ConfiguredAirbyteCatalog {
-    pub streams: Vec<ConfiguredAirbyteStream>,
+pub struct ConfiguredGaussCatalog {
+    pub streams: Vec<ConfiguredGaussStream>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ConfiguredAirbyteStream {
-    pub stream: AirbyteStream,
+pub struct ConfiguredGaussStream {
+    pub stream: GaussStream,
     pub sync_mode: SyncMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor_field: Option<Vec<String>>,
@@ -67,10 +67,10 @@ pub struct ConfiguredAirbyteStream {
     pub sync_id: Option<i64>,
 }
 
-impl ConfiguredAirbyteStream {
+impl ConfiguredGaussStream {
     /// A full-refresh/append configuration — the lowest common denominator
     /// every source supports.
-    pub fn full_refresh(stream: AirbyteStream) -> Self {
+    pub fn full_refresh(stream: GaussStream) -> Self {
         Self {
             stream,
             sync_mode: SyncMode::FullRefresh,

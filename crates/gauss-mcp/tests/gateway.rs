@@ -107,7 +107,7 @@ async fn agent_flow_end_to_end() {
     // Register a source definition whose spec marks `token` secret.
     let spec = json!({"connectionSpecification": {
         "type": "object",
-        "properties": {"token": {"type": "string", "airbyte_secret": true}}
+        "properties": {"token": {"type": "string", "gauss_secret": true}}
     }});
     let src_def = call(
         &gw,

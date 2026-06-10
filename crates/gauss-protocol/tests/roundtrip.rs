@@ -1,12 +1,12 @@
 //! Round-trip tests against wire-format fixtures shaped like the examples in
-//! the Airbyte Protocol docs. Each fixture is deserialized, re-serialized,
+//! the Gauss Protocol docs. Each fixture is deserialized, re-serialized,
 //! and compared as JSON values to prove wire-exactness.
 
 use gauss_protocol::*;
 use serde_json::{json, Value};
 
-fn roundtrip(fixture: Value) -> AirbyteMessage {
-    let msg: AirbyteMessage =
+fn roundtrip(fixture: Value) -> GaussMessage {
+    let msg: GaussMessage =
         serde_json::from_value(fixture.clone()).expect("fixture must deserialize");
     let back = serde_json::to_value(&msg).expect("message must serialize");
     assert_eq!(fixture, back, "wire form must round-trip unchanged");
@@ -24,7 +24,7 @@ fn record_message() {
             "emitted_at": 1767225600000_i64
         }
     }));
-    assert_eq!(msg.message_type, AirbyteMessageType::Record);
+    assert_eq!(msg.message_type, GaussMessageType::Record);
     let record = msg.record.unwrap();
     assert_eq!(record.stream, "users");
     assert_eq!(record.data["name"], "ada");
@@ -44,7 +44,7 @@ fn stream_state_message() {
         }
     }));
     let state = msg.state.unwrap();
-    assert_eq!(state.state_type, Some(AirbyteStateType::Stream));
+    assert_eq!(state.state_type, Some(GaussStateType::Stream));
     assert_eq!(state.source_stats.unwrap().record_count, Some(100.0));
 }
 
@@ -83,7 +83,7 @@ fn log_message() {
         "type": "LOG",
         "log": {"level": "WARN", "message": "rate limited, backing off"}
     }));
-    assert_eq!(msg.log.unwrap().level, AirbyteLogLevel::Warn);
+    assert_eq!(msg.log.unwrap().level, GaussLogLevel::Warn);
 }
 
 #[test]
@@ -155,7 +155,7 @@ fn configured_catalog() {
             "primary_key": [["id"]]
         }]
     });
-    let catalog: ConfiguredAirbyteCatalog = serde_json::from_value(fixture.clone()).unwrap();
+    let catalog: ConfiguredGaussCatalog = serde_json::from_value(fixture.clone()).unwrap();
     assert_eq!(catalog.streams[0].sync_mode, SyncMode::Incremental);
     assert_eq!(
         catalog.streams[0].destination_sync_mode,
@@ -179,7 +179,7 @@ fn error_trace_message() {
         }
     }));
     let trace = msg.trace.unwrap();
-    assert_eq!(trace.trace_type, AirbyteTraceType::Error);
+    assert_eq!(trace.trace_type, GaussTraceType::Error);
     assert_eq!(
         trace.error.unwrap().failure_type,
         Some(FailureType::ConfigError)
@@ -216,7 +216,7 @@ fn control_message() {
     let control = msg.control.unwrap();
     assert_eq!(
         control.control_type,
-        AirbyteControlMessageType::ConnectorConfig
+        GaussControlMessageType::ConnectorConfig
     );
 }
 
@@ -232,7 +232,7 @@ fn unknown_fields_are_tolerated() {
 
 #[test]
 fn wire_form_is_single_line() {
-    let msg = AirbyteMessage::record(AirbyteRecordMessage {
+    let msg = GaussMessage::record(GaussRecordMessage {
         namespace: None,
         stream: "users".into(),
         data: json!({"id": 1}),

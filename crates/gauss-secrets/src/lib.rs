@@ -1,7 +1,8 @@
 //! Secret envelope for connector configurations.
 //!
-//! Connector specs mark sensitive fields with `"airbyte_secret": true` in
-//! their JSON Schema. The platform must never persist those values alongside
+//! Connector specs mark sensitive fields with `"gauss_secret": true` (or the
+//! legacy `"airbyte_secret": true` keyword used by third-party connector
+//! specs) in their JSON Schema. The platform must never persist those values alongside
 //! the rest of the configuration. This crate implements the envelope:
 //!
 //! - [`split_config`] walks a config against its spec schema and replaces
@@ -24,8 +25,10 @@ use uuid::Uuid;
 /// Key used for secret references inside persisted configurations.
 pub const SECRET_REF_KEY: &str = "_secret";
 
-/// Schema keyword marking a property as sensitive.
-const SECRET_SCHEMA_KEY: &str = "airbyte_secret";
+/// Schema keywords marking a property as sensitive. `gauss_secret` is the
+/// native keyword; the second is accepted for compatibility with third-party
+/// connector specs.
+const SECRET_SCHEMA_KEYS: [&str; 2] = ["gauss_secret", "airbyte_secret"];
 
 #[derive(Debug, thiserror::Error)]
 pub enum SecretsError {
@@ -151,7 +154,9 @@ fn collect_property(schema: &Value, key: &str, found: &mut Option<Value>) {
 }
 
 fn schema_marks_secret(schema: &Value) -> bool {
-    schema.get(SECRET_SCHEMA_KEY).and_then(Value::as_bool) == Some(true)
+    SECRET_SCHEMA_KEYS
+        .iter()
+        .any(|key| schema.get(key).and_then(Value::as_bool) == Some(true))
 }
 
 fn is_secret_ref(value: &Value) -> bool {

@@ -27,7 +27,7 @@ CREATE TABLE actor_definitions (
     UNIQUE (actor_type, docker_repository)
 );
 
--- Configured connector instances (Airbyte's "sources" and "destinations").
+-- Configured connector instances (sources and destinations).
 -- `configuration` is always the redacted form: secret values live in the
 -- secrets table and are referenced by `{"_secret": "<id>"}` nodes.
 CREATE TABLE actors (
@@ -51,7 +51,7 @@ CREATE TABLE connections (
     name            TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'active'
                     CHECK (status IN ('active', 'inactive', 'deprecated')),
-    -- ConfiguredAirbyteCatalog (gauss-protocol wire form)
+    -- ConfiguredGaussCatalog (gauss-protocol wire form)
     catalog         JSONB NOT NULL,
     schedule        JSONB,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

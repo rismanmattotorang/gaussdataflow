@@ -11,7 +11,7 @@ pub struct NewConnection {
     pub source_id: Uuid,
     pub destination_id: Uuid,
     pub name: String,
-    /// ConfiguredAirbyteCatalog wire form.
+    /// ConfiguredGaussCatalog wire form.
     pub catalog: Value,
     pub schedule: Option<Value>,
     pub notifications: Option<Value>,

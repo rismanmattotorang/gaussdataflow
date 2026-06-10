@@ -125,7 +125,7 @@ pub struct Connection {
     pub destination_id: Uuid,
     pub name: String,
     pub status: String,
-    /// ConfiguredAirbyteCatalog wire form.
+    /// ConfiguredGaussCatalog wire form.
     pub catalog: Json<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schedule: Option<Json<Value>>,

@@ -37,7 +37,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "register_connector",
-            "description": "Register (or update) a connector definition in the registry by docker image, e.g. a connector image compatible with the open Airbyte protocol.",
+            "description": "Register (or update) a connector definition in the registry by docker image, e.g. a connector image compatible with the open Gauss protocol.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -53,7 +53,7 @@ pub fn definitions() -> Value {
         },
         {
             "name": "create_source",
-            "description": "Create a configured source in a workspace. Secret fields (marked airbyte_secret in the spec) are sealed into the secrets backend automatically.",
+            "description": "Create a configured source in a workspace. Secret fields (marked gauss_secret in the spec) are sealed into the secrets backend automatically.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

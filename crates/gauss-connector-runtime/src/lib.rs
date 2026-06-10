@@ -1,11 +1,11 @@
-//! Runs Airbyte-protocol connectors and streams their output as typed
+//! Runs Gauss-protocol connectors and streams their output as typed
 //! messages.
 //!
 //! A connector is just a program: `docker run -i <image> <op> --config …` or
 //! a local binary with the same argument convention. [`Launcher`]
 //! implementations turn a [`ConnectorCommand`] into a runnable
 //! [`tokio::process::Command`]; [`ConnectorProcess`] streams STDOUT lines as
-//! [`gauss_protocol::AirbyteMessage`]s; [`ConnectorRunner`] provides the
+//! [`gauss_protocol::GaussMessage`]s; [`ConnectorRunner`] provides the
 //! high-level `spec`/`check`/`discover`/`read` operations.
 
 mod error;

@@ -3,9 +3,9 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "gaussdataflow",
+  title: "Gauss-DataFlow",
   description:
-    "The data movement platform for the agentic era — built in Rust.",
+    "Gauss-DataFlow by Gaussian Technologies — the data movement platform for the agentic era, built in Rust.",
 };
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
       <body>
         <nav className="topbar">
           <Link href="/" className="brand">
-            gauss<span>dataflow</span>
+            Gauss-<span>DataFlow</span>
           </Link>
           <Link href="/" className="navlink">
             Workspaces

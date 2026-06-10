@@ -72,16 +72,16 @@ impl Source for NoSource {
     fn spec(&self) -> ConnectorSpecification {
         unreachable!()
     }
-    async fn check(&self, _: &Value) -> Result<AirbyteConnectionStatus, CdkError> {
+    async fn check(&self, _: &Value) -> Result<GaussConnectionStatus, CdkError> {
         unreachable!()
     }
-    async fn discover(&self, _: &Value) -> Result<AirbyteCatalog, CdkError> {
+    async fn discover(&self, _: &Value) -> Result<GaussCatalog, CdkError> {
         unreachable!()
     }
     async fn read(
         &self,
         _: &Value,
-        _: &ConfiguredAirbyteCatalog,
+        _: &ConfiguredGaussCatalog,
         _: Option<&Value>,
         _: &mut Emitter,
     ) -> Result<(), CdkError> {
@@ -94,14 +94,14 @@ impl Destination for NoDestination {
     fn spec(&self) -> ConnectorSpecification {
         unreachable!()
     }
-    async fn check(&self, _: &Value) -> Result<AirbyteConnectionStatus, CdkError> {
+    async fn check(&self, _: &Value) -> Result<GaussConnectionStatus, CdkError> {
         unreachable!()
     }
     async fn write(
         &self,
         _: &Value,
-        _: &ConfiguredAirbyteCatalog,
-        _: &mut (dyn Iterator<Item = AirbyteMessage> + Send),
+        _: &ConfiguredGaussCatalog,
+        _: &mut (dyn Iterator<Item = GaussMessage> + Send),
         _: &mut Emitter,
     ) -> Result<(), CdkError> {
         unreachable!()
@@ -115,7 +115,7 @@ fn load_json(path: &Path) -> Result<Value, CdkError> {
         .map_err(|e| CdkError::Config(format!("parsing {}: {e}", path.display())))
 }
 
-fn load_catalog(path: &Path) -> Result<ConfiguredAirbyteCatalog, CdkError> {
+fn load_catalog(path: &Path) -> Result<ConfiguredGaussCatalog, CdkError> {
     serde_json::from_value(load_json(path)?)
         .map_err(|e| CdkError::Config(format!("invalid configured catalog: {e}")))
 }
@@ -148,7 +148,7 @@ async fn dispatch(
                 (None, Some(destination)) => destination.spec(),
                 (None, None) => unreachable!("runner always gets at least one side"),
             };
-            emitter.message(&AirbyteMessage::spec(spec))
+            emitter.message(&GaussMessage::spec(spec))
         }
         Command::Check { config } => {
             let config = load_json(&config)?;
@@ -158,16 +158,16 @@ async fn dispatch(
                 (None, None) => unreachable!(),
             };
             // Connector-level failures are a FAILED status, not a crash.
-            let status = checked.unwrap_or_else(|error| AirbyteConnectionStatus {
+            let status = checked.unwrap_or_else(|error| GaussConnectionStatus {
                 status: ConnectionStatus::Failed,
                 message: Some(error.to_string()),
             });
-            emitter.message(&AirbyteMessage::connection_status(status))
+            emitter.message(&GaussMessage::connection_status(status))
         }
         Command::Discover { config } => {
             let source = source.ok_or_else(|| missing("source"))?;
             let catalog = source.discover(&load_json(&config)?).await?;
-            emitter.message(&AirbyteMessage::catalog(catalog))
+            emitter.message(&GaussMessage::catalog(catalog))
         }
         Command::Read {
             config,

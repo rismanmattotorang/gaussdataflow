@@ -4,11 +4,13 @@
 
 **The data movement platform for the agentic era.**
 
+Built in the open by **Gaussian Technologies**.
+
 Move data from anywhere to anywhere — orchestrated by a Rust core that treats
 reliability as physics, operated by humans through a modern web console, and by
 AI agents through a native MCP gateway.
 
-[Quickstart](#quickstart) · [Architecture](#architecture) · [MCP Gateway](#-built-for-agents-mcp-gateway) · [Roadmap](docs/STRATEGY.md) · MIT License
+[Quickstart](#quickstart) · [Architecture](#architecture) · [MCP Gateway](#-built-for-agents-mcp-gateway) · [Architecture](docs/ARCHITECTURE.md) · MIT License
 
 </div>
 
@@ -17,7 +19,7 @@ AI agents through a native MCP gateway.
 ## Why Gauss-DataFlow
 
 Data integration platforms were built for a world where humans click buttons
-and JVMs burn memory. gaussdataflow is built for what comes next:
+and JVMs burn memory. Gauss-DataFlow is built for what comes next:
 
 - **🦀 A Rust data plane.** The entire control and data plane — API, scheduler,
   replication engine, secrets — is a single, memory-safe, natively compiled
@@ -28,11 +30,10 @@ and JVMs burn memory. gaussdataflow is built for what comes next:
   [Model Context Protocol](https://modelcontextprotocol.io) gateway: browse
   connectors, configure sources, wire pipelines, trigger and monitor syncs.
   Your data platform becomes a tool your agents call.
-- **🔌 An open connector ecosystem from day one.** gaussdataflow speaks the
-  open Airbyte Protocol on the wire, so hundreds of existing
-  protocol-compatible connector images — Postgres, Stripe, Salesforce,
-  Shopify, BigQuery, Snowflake, Pinecone, and the rest — run unchanged. Bring
-  your own connector as a Docker image or a native binary.
+- **🔌 An open connector model.** Connectors are independent programs speaking
+  newline-delimited JSON over STDIN/STDOUT — the Gauss connector protocol.
+  Any protocol-compatible connector runs unchanged, as a Docker image or a
+  native binary; the registry imports third-party catalogs with one call.
 - **🛡️ Secrets that never leak.** Connector configs are split against their
   spec the moment they enter the system: secret fields are sealed into a
   dedicated backend and replaced by opaque references. The API, the database
@@ -58,7 +59,7 @@ and JVMs burn memory. gaussdataflow is built for what comes next:
 | **Security & governance** | API tokens with RBAC (admin/editor/viewer), audit log of every mutation, generic OAuth2 plumbing with sealed tokens, secrets in Postgres or HashiCorp Vault |
 | **Orchestrator** | Postgres-backed queue, scheduler (cron + interval), retries, heartbeats, cancellation — embedded in the server (`--worker`) or scaled out as separate processes |
 | **Replication engine** | `gauss-sync` — pipe-backpressured source→destination streaming with destination-acked checkpointing |
-| **Connector registry** | Seeded with 35+ popular sources & destinations; import the full public catalog with one API call; register anything by image or local binary |
+| **Connector registry** | Import any registry document with one API call; register connectors by Docker image or native binary |
 | **Rust CDK** | `gauss-cdk` — implement two traits, get a complete protocol-correct connector binary; container-free execution via the `exec:` launcher |
 | **Low-code engine** | `gauss-declarative` — describe an HTTP API in a YAML manifest (auth, pagination, incremental cursors) and run it as a native source: no container, no code |
 | **Dev CLI** | `gauss spec\|check\|discover\|read` — the connector development loop against any image or binary |
@@ -103,7 +104,7 @@ Give any MCP client operational control of your data platform:
 ```json
 {
   "mcpServers": {
-    "gaussdataflow": {
+    "gauss-dataflow": {
       "command": "/path/to/gauss-mcp",
       "env": { "DATABASE_URL": "postgres://postgres:postgres@127.0.0.1:5432/gauss" }
     }
@@ -152,7 +153,7 @@ completion can ping your systems back: set
 
 ## 🧩 Connectors without containers
 
-Describe an HTTP API in a manifest; gaussdataflow runs it as a **native
+Describe an HTTP API in a manifest; Gauss-DataFlow runs it as a **native
 source** — no container, no glue code:
 
 ```yaml
@@ -261,9 +262,12 @@ All six phases of the founding roadmap have shipped: wire protocol &
 connector runtime, persistence & sealed secrets, Postgres-native
 orchestration, the web console & MCP gateway, the Rust CDK & declarative
 engine, and enterprise hardening (RBAC, audit, OAuth2, Vault, webhooks,
-import tooling). The build history and architecture decisions live in
-[docs/STRATEGY.md](docs/STRATEGY.md).
+import tooling). Architecture and design decisions live in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
 
-MIT. Built in the open — issues and PRs welcome.
+**MIT, forever.** Gauss-DataFlow is and will remain fully open source —
+no license switches, no open-core carve-outs. Copyright © 2026
+[Gaussian Technologies](https://github.com/rismanmattotorang/gaussdataflow);
+issues and PRs welcome.
