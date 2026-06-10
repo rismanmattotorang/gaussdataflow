@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gauss-protocol",
+    "crates/gauss-connector-runtime",
+    "crates/gauss-cli",
+    "crates/gauss-mock-connector",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/rismanmattotorang/gaussdataflow"
+
+[workspace.dependencies]
+gauss-protocol = { path = "crates/gauss-protocol" }
+gauss-connector-runtime = { path = "crates/gauss-connector-runtime" }
+
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = [
+    "macros",
+    "process",
+    "io-util",
+    "io-std",
+    "rt-multi-thread",
+    "fs",
+    "time",
+    "sync",
+] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
