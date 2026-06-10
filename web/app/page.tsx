@@ -14,13 +14,13 @@ const phases = [
   {
     id: 2,
     name: "Persistence & Config API",
-    status: "next",
-    desc: "Postgres + sqlx, axum config API, connector registry",
+    status: "done",
+    desc: "Postgres + sqlx, axum config API, secret envelope, connector registry",
   },
   {
     id: 3,
     name: "Orchestration & sync",
-    status: "later",
+    status: "next",
     desc: "Job queue, replication worker, checkpointing, schedules",
   },
   {

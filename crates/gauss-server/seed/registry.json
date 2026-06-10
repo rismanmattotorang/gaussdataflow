@@ -1,0 +1,53 @@
+{
+  "sources": [
+    {
+      "definitionId": "0c2f4a3a-0000-4000-8000-000000000001",
+      "name": "Mock Source (gaussdataflow)",
+      "dockerRepository": "gauss/mock-source",
+      "dockerImageTag": "dev",
+      "documentationUrl": "https://github.com/rismanmattotorang/gaussdataflow",
+      "spec": {
+        "connectionSpecification": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "title": "Mock Source Spec",
+          "type": "object",
+          "properties": {
+            "record_count": { "type": "integer", "minimum": 0, "default": 10 },
+            "fail_check": { "type": "boolean", "default": false }
+          }
+        },
+        "supportsIncremental": true
+      }
+    },
+    {
+      "definitionId": "0c2f4a3a-0000-4000-8000-000000000002",
+      "name": "Faker",
+      "dockerRepository": "airbyte/source-faker",
+      "dockerImageTag": "latest",
+      "documentationUrl": "https://docs.airbyte.com/integrations/sources/faker"
+    },
+    {
+      "definitionId": "0c2f4a3a-0000-4000-8000-000000000003",
+      "name": "Postgres",
+      "dockerRepository": "airbyte/source-postgres",
+      "dockerImageTag": "latest",
+      "documentationUrl": "https://docs.airbyte.com/integrations/sources/postgres"
+    }
+  ],
+  "destinations": [
+    {
+      "definitionId": "0c2f4a3a-0000-4000-8000-000000000101",
+      "name": "Postgres",
+      "dockerRepository": "airbyte/destination-postgres",
+      "dockerImageTag": "latest",
+      "documentationUrl": "https://docs.airbyte.com/integrations/destinations/postgres"
+    },
+    {
+      "definitionId": "0c2f4a3a-0000-4000-8000-000000000102",
+      "name": "Local CSV",
+      "dockerRepository": "airbyte/destination-csv",
+      "dockerImageTag": "latest",
+      "documentationUrl": "https://docs.airbyte.com/integrations/destinations/csv"
+    }
+  ]
+}

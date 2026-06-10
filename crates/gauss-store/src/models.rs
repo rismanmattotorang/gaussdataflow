@@ -1,0 +1,93 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sqlx::types::Json;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "actor_type", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum ActorType {
+    Source,
+    Destination,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Workspace {
+    #[serde(rename = "workspaceId")]
+    pub id: Uuid,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A connector registry entry.
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct ActorDefinition {
+    #[serde(rename = "definitionId")]
+    pub id: Uuid,
+    pub actor_type: ActorType,
+    pub name: String,
+    pub docker_repository: String,
+    pub docker_image_tag: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documentation_url: Option<String>,
+    /// ConnectorSpecification wire form, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spec: Option<Json<Value>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A configured source or destination. `configuration` is always the
+/// redacted form (secret values replaced by `{"_secret": id}` references).
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Actor {
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub definition_id: Uuid,
+    pub actor_type: ActorType,
+    pub name: String,
+    pub configuration: Json<Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConnectionStatus {
+    Active,
+    Inactive,
+    Deprecated,
+}
+
+impl ConnectionStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Inactive => "inactive",
+            Self::Deprecated => "deprecated",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Connection {
+    #[serde(rename = "connectionId")]
+    pub id: Uuid,
+    pub workspace_id: Uuid,
+    pub source_id: Uuid,
+    pub destination_id: Uuid,
+    pub name: String,
+    pub status: String,
+    /// ConfiguredAirbyteCatalog wire form.
+    pub catalog: Json<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<Json<Value>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}

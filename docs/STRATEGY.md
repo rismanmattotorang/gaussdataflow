@@ -75,14 +75,28 @@ the published OpenAPI config-API spec, and documentation.
 available) `gauss read --image airbyte/source-faker …` produce records, state
 checkpoints, and stream-status traces.
 
-### Phase 2 — Persistence & Config API
-- Postgres schema (sqlx migrations): workspaces, actor definitions (connector
-  registry), actors (sources/destinations), connections, jobs/attempts
-- `gauss-server` (axum): config API compatible *in shape* with Airbyte's
-  public API (`/v1/sources`, `/v1/destinations`, `/v1/connections`, …) so
-  existing tooling (e.g. Terraform provider, PyAirbyte) can be adapted cheaply
-- Connector registry ingestion from the public Airbyte connector catalog JSON
-- Secrets: envelope abstraction with a local backend first
+### Phase 2 — Persistence & Config API (done)
+- [x] Postgres schema (sqlx migrations): workspaces, actor definitions
+      (connector registry), actors (sources/destinations), connections,
+      secrets, jobs/attempts (driven in Phase 3)
+- [x] `gauss-store`: typed repositories over a PgPool; runtime-checked
+      queries so the crate builds without a live database
+- [x] `gauss-secrets`: envelope abstraction — configs are split against the
+      spec's `airbyte_secret` markers into a redacted form (persisted,
+      API-visible) plus raw values behind a pluggable `SecretsBackend`
+      (Postgres-local backend now; vault later). Hydration happens only at
+      connector launch.
+- [x] `gauss-server` (axum): config API compatible *in shape* with Airbyte's
+      public API — workspaces, source/destination definitions, sources,
+      destinations, connections, plus `POST /sources/{id}/check` which
+      hydrates the config and runs the connector via the Phase-1 runtime
+- [x] Connector registry ingestion (`POST /api/v1/definitions/import` +
+      `--seed-registry` at boot) accepting Airbyte-registry-shaped JSON;
+      idempotent upserts keyed on docker repository
+
+**Exit criteria (met):** API integration tests green against real Postgres;
+secrets never appear in API responses or the database's actor rows; `check`
+runs a real containerized connector end-to-end through the API.
 
 ### Phase 3 — Orchestration & sync
 - Job queue on Postgres (`FOR UPDATE SKIP LOCKED`) — no JVM Temporal
