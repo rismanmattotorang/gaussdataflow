@@ -7,27 +7,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteStateMessage {
+pub struct GaussStateMessage {
     /// Absent means LEGACY in old connectors.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub state_type: Option<AirbyteStateType>,
+    pub state_type: Option<GaussStateType>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stream: Option<AirbyteStreamState>,
+    pub stream: Option<GaussStreamState>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub global: Option<AirbyteGlobalState>,
+    pub global: Option<GaussGlobalState>,
     /// Legacy whole-source state blob.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
     #[serde(rename = "sourceStats", skip_serializing_if = "Option::is_none")]
-    pub source_stats: Option<AirbyteStateStats>,
+    pub source_stats: Option<GaussStateStats>,
     #[serde(rename = "destinationStats", skip_serializing_if = "Option::is_none")]
-    pub destination_stats: Option<AirbyteStateStats>,
+    pub destination_stats: Option<GaussStateStats>,
 }
 
-impl AirbyteStateMessage {
-    pub fn stream(stream_state: AirbyteStreamState) -> Self {
+impl GaussStateMessage {
+    pub fn stream(stream_state: GaussStreamState) -> Self {
         Self {
-            state_type: Some(AirbyteStateType::Stream),
+            state_type: Some(GaussStateType::Stream),
             stream: Some(stream_state),
             global: None,
             data: None,
@@ -39,24 +39,24 @@ impl AirbyteStateMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum AirbyteStateType {
+pub enum GaussStateType {
     Global,
     Stream,
     Legacy,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteStreamState {
+pub struct GaussStreamState {
     pub stream_descriptor: StreamDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream_state: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteGlobalState {
+pub struct GaussGlobalState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shared_state: Option<Value>,
-    pub stream_states: Vec<AirbyteStreamState>,
+    pub stream_states: Vec<GaussStreamState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -76,7 +76,7 @@ impl StreamDescriptor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteStateStats {
+pub struct GaussStateStats {
     #[serde(rename = "recordCount", skip_serializing_if = "Option::is_none")]
     pub record_count: Option<f64>,
 }

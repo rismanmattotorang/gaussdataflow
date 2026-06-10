@@ -300,7 +300,7 @@ async fn deployment_import_round_trip() {
                 "dockerImageTag": "1.0",
                 "spec": {"connectionSpecification": {
                     "type": "object",
-                    "properties": {"api_key": {"type": "string", "airbyte_secret": true}}
+                    "properties": {"api_key": {"type": "string", "gauss_secret": true}}
                 }}
             },
             "configuration": {"api_key": "raw-import-secret"}

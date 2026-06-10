@@ -83,24 +83,24 @@ impl Source for MockSource {
         spec()
     }
 
-    async fn check(&self, config: &Value) -> Result<AirbyteConnectionStatus, CdkError> {
+    async fn check(&self, config: &Value) -> Result<GaussConnectionStatus, CdkError> {
         let config = parse_config(config)?;
         Ok(if config.fail_check {
-            AirbyteConnectionStatus {
+            GaussConnectionStatus {
                 status: ConnectionStatus::Failed,
                 message: Some("fail_check was set".into()),
             }
         } else {
-            AirbyteConnectionStatus {
+            GaussConnectionStatus {
                 status: ConnectionStatus::Succeeded,
                 message: None,
             }
         })
     }
 
-    async fn discover(&self, config: &Value) -> Result<AirbyteCatalog, CdkError> {
+    async fn discover(&self, config: &Value) -> Result<GaussCatalog, CdkError> {
         parse_config(config)?;
-        let mut stream = AirbyteStream::new(
+        let mut stream = GaussStream::new(
             STREAM_NAME,
             json!({
                 "type": "object",
@@ -117,7 +117,7 @@ impl Source for MockSource {
         stream.default_cursor_field = Some(vec!["id".into()]);
         stream.source_defined_primary_key = Some(vec![vec!["id".into()]]);
         stream.is_resumable = Some(true);
-        Ok(AirbyteCatalog {
+        Ok(GaussCatalog {
             streams: vec![stream],
         })
     }
@@ -125,7 +125,7 @@ impl Source for MockSource {
     async fn read(
         &self,
         config: &Value,
-        catalog: &ConfiguredAirbyteCatalog,
+        catalog: &ConfiguredGaussCatalog,
         state: Option<&Value>,
         emitter: &mut Emitter,
     ) -> Result<(), CdkError> {
@@ -179,15 +179,15 @@ impl Destination for MockDestination {
         spec()
     }
 
-    async fn check(&self, config: &Value) -> Result<AirbyteConnectionStatus, CdkError> {
+    async fn check(&self, config: &Value) -> Result<GaussConnectionStatus, CdkError> {
         MockSource.check(config).await
     }
 
     async fn write(
         &self,
         config: &Value,
-        _catalog: &ConfiguredAirbyteCatalog,
-        messages: &mut (dyn Iterator<Item = AirbyteMessage> + Send),
+        _catalog: &ConfiguredGaussCatalog,
+        messages: &mut (dyn Iterator<Item = GaussMessage> + Send),
         emitter: &mut Emitter,
     ) -> Result<(), CdkError> {
         let config = parse_config(config)?;

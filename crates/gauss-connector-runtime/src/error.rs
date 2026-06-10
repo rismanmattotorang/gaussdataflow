@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gauss_protocol::AirbyteErrorTraceMessage;
+use gauss_protocol::GaussErrorTraceMessage;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -29,7 +29,7 @@ pub enum RuntimeError {
     },
 
     #[error("connector reported an error: {}", .0.message)]
-    ConnectorError(Box<AirbyteErrorTraceMessage>),
+    ConnectorError(Box<GaussErrorTraceMessage>),
 
     #[error("connector exited with failure code {exit_code:?}")]
     Failed { exit_code: Option<i32> },

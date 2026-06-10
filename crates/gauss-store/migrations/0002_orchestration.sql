@@ -15,7 +15,7 @@ CREATE UNIQUE INDEX jobs_one_active_per_connection
 ALTER TABLE attempts
     ADD COLUMN last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
--- Latest committed sync state per connection (JSON array of Airbyte state
+-- Latest committed sync state per connection (JSON array of protocol state
 -- messages, one per stream). Written on every destination-acked checkpoint.
 CREATE TABLE connection_states (
     connection_id UUID PRIMARY KEY REFERENCES connections (id) ON DELETE CASCADE,

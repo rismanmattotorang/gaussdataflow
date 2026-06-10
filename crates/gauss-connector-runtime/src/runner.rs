@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use gauss_protocol::{
-    AirbyteCatalog, AirbyteConnectionStatus, AirbyteErrorTraceMessage, AirbyteMessage,
-    AirbyteStateMessage, AirbyteTraceType, ConnectorSpecification,
+    ConnectorSpecification, GaussCatalog, GaussConnectionStatus, GaussErrorTraceMessage,
+    GaussMessage, GaussStateMessage, GaussTraceType,
 };
 
 use crate::error::RuntimeError;
@@ -17,7 +17,7 @@ pub struct ConnectorRunner {
 /// One event surfaced to the caller during `read`.
 #[derive(Debug)]
 pub enum ReadEvent {
-    Message(Box<AirbyteMessage>),
+    Message(Box<GaussMessage>),
     /// A non-protocol STDOUT line.
     Raw(String),
 }
@@ -27,7 +27,7 @@ pub struct ReadSummary {
     pub records: u64,
     pub state_messages: u64,
     /// Latest checkpoint — what a platform would persist to resume the sync.
-    pub last_state: Option<AirbyteStateMessage>,
+    pub last_state: Option<GaussStateMessage>,
 }
 
 impl ConnectorRunner {
@@ -41,7 +41,7 @@ impl ConnectorRunner {
         self.first(ConnectorCommand::Spec, "SPEC", |m| m.spec).await
     }
 
-    pub async fn check(&self, config: &Path) -> Result<AirbyteConnectionStatus, RuntimeError> {
+    pub async fn check(&self, config: &Path) -> Result<GaussConnectionStatus, RuntimeError> {
         let cmd = ConnectorCommand::Check {
             config: config.to_path_buf(),
         };
@@ -49,7 +49,7 @@ impl ConnectorRunner {
             .await
     }
 
-    pub async fn discover(&self, config: &Path) -> Result<AirbyteCatalog, RuntimeError> {
+    pub async fn discover(&self, config: &Path) -> Result<GaussCatalog, RuntimeError> {
         let cmd = ConnectorCommand::Discover {
             config: config.to_path_buf(),
         };
@@ -72,7 +72,7 @@ impl ConnectorRunner {
         let mut process = ConnectorProcess::spawn(self.launcher.as_ref(), &cmd)?;
 
         let mut summary = ReadSummary::default();
-        let mut error: Option<AirbyteErrorTraceMessage> = None;
+        let mut error: Option<GaussErrorTraceMessage> = None;
 
         while let Some(output) = process.next().await? {
             match output {
@@ -111,11 +111,11 @@ impl ConnectorRunner {
         &self,
         cmd: ConnectorCommand,
         expected: &'static str,
-        extract: impl Fn(AirbyteMessage) -> Option<T>,
+        extract: impl Fn(GaussMessage) -> Option<T>,
     ) -> Result<T, RuntimeError> {
         let mut process = ConnectorProcess::spawn(self.launcher.as_ref(), &cmd)?;
         let mut result: Option<T> = None;
-        let mut error: Option<AirbyteErrorTraceMessage> = None;
+        let mut error: Option<GaussErrorTraceMessage> = None;
 
         while let Some(output) = process.next().await? {
             if let ConnectorOutput::Message(msg) = output {
@@ -140,9 +140,9 @@ impl ConnectorRunner {
     }
 }
 
-fn extract_error(msg: &AirbyteMessage) -> Option<AirbyteErrorTraceMessage> {
+fn extract_error(msg: &GaussMessage) -> Option<GaussErrorTraceMessage> {
     let trace = msg.trace.as_ref()?;
-    if trace.trace_type == AirbyteTraceType::Error {
+    if trace.trace_type == GaussTraceType::Error {
         trace.error.clone()
     } else {
         None

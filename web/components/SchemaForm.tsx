@@ -3,7 +3,7 @@
 // Renders a connector configuration form from its connectionSpecification
 // JSON Schema — the heart of the connector setup experience. Supports
 // string/number/integer/boolean/enum fields, nested objects, defaults,
-// required markers, and `airbyte_secret` (rendered as password inputs).
+// required markers, and secret markers (rendered as password inputs).
 
 import { useMemo } from "react";
 
@@ -13,6 +13,8 @@ type Schema = {
   description?: string;
   default?: unknown;
   enum?: unknown[];
+  gauss_secret?: boolean;
+  // Legacy keyword used by third-party connector specs.
   airbyte_secret?: boolean;
   properties?: Record<string, Schema>;
   required?: string[];
@@ -20,6 +22,10 @@ type Schema = {
 };
 
 export type ConfigValue = Record<string, unknown>;
+
+function isSecret(schema: Schema): boolean {
+  return Boolean(schema.gauss_secret ?? schema.airbyte_secret);
+}
 
 function fieldOrder(props: Record<string, Schema>): string[] {
   return Object.keys(props).sort((a, b) => {
@@ -127,13 +133,13 @@ function Field({
     input = (
       <input
         id={id}
-        type={schema.airbyte_secret ? "password" : "text"}
-        autoComplete={schema.airbyte_secret ? "new-password" : "off"}
+        type={isSecret(schema) ? "password" : "text"}
+        autoComplete={isSecret(schema) ? "new-password" : "off"}
         value={String(value ?? "")}
         onChange={(e) =>
           onChange(e.target.value === "" ? undefined : e.target.value)
         }
-        placeholder={schema.airbyte_secret ? "••••••••" : undefined}
+        placeholder={isSecret(schema) ? "••••••••" : undefined}
       />
     );
   }
@@ -143,7 +149,7 @@ function Field({
       <label htmlFor={id}>
         {label}
         {required && <span className="req">*</span>}
-        {schema.airbyte_secret && <span className="badge later">secret</span>}
+        {isSecret(schema) && <span className="badge later">secret</span>}
       </label>
       {input}
       {schema.description && <p className="hint">{schema.description}</p>}

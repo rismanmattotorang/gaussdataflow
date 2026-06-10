@@ -6,25 +6,25 @@ use serde_json::Value;
 use crate::state::StreamDescriptor;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteTraceMessage {
+pub struct GaussTraceMessage {
     #[serde(rename = "type")]
-    pub trace_type: AirbyteTraceType,
+    pub trace_type: GaussTraceType,
     /// Epoch milliseconds.
     pub emitted_at: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<AirbyteErrorTraceMessage>,
+    pub error: Option<GaussErrorTraceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub estimate: Option<AirbyteEstimateTraceMessage>,
+    pub estimate: Option<GaussEstimateTraceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stream_status: Option<AirbyteStreamStatusTraceMessage>,
+    pub stream_status: Option<GaussStreamStatusTraceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub analytics: Option<AirbyteAnalyticsTraceMessage>,
+    pub analytics: Option<GaussAnalyticsTraceMessage>,
 }
 
-impl AirbyteTraceMessage {
-    pub fn stream_status(emitted_at: f64, status: AirbyteStreamStatusTraceMessage) -> Self {
+impl GaussTraceMessage {
+    pub fn stream_status(emitted_at: f64, status: GaussStreamStatusTraceMessage) -> Self {
         Self {
-            trace_type: AirbyteTraceType::StreamStatus,
+            trace_type: GaussTraceType::StreamStatus,
             emitted_at,
             error: None,
             estimate: None,
@@ -36,7 +36,7 @@ impl AirbyteTraceMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum AirbyteTraceType {
+pub enum GaussTraceType {
     Error,
     Estimate,
     StreamStatus,
@@ -44,7 +44,7 @@ pub enum AirbyteTraceType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteErrorTraceMessage {
+pub struct GaussErrorTraceMessage {
     /// User-facing summary of the failure.
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,7 +66,7 @@ pub enum FailureType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteEstimateTraceMessage {
+pub struct GaussEstimateTraceMessage {
     pub name: String,
     #[serde(rename = "type")]
     pub estimate_type: EstimateType,
@@ -86,7 +86,7 @@ pub enum EstimateType {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteStreamStatusTraceMessage {
+pub struct GaussStreamStatusTraceMessage {
     pub stream_descriptor: StreamDescriptor,
     pub status: StreamStatus,
     /// Structured reasons (e.g. rate-limited); kept opaque.
@@ -104,7 +104,7 @@ pub enum StreamStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AirbyteAnalyticsTraceMessage {
+pub struct GaussAnalyticsTraceMessage {
     #[serde(rename = "type")]
     pub analytics_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]

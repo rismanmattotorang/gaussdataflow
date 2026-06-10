@@ -3,7 +3,7 @@ const phases = [
     id: 0,
     name: "Foundations",
     status: "done",
-    desc: "Monorepo, CI, strategy, protocol target pinned",
+    desc: "Monorepo, CI, protocol target pinned",
   },
   {
     id: 1,
@@ -49,11 +49,11 @@ export default function Roadmap() {
   return (
     <main>
       <h1>
-        gauss<span>dataflow</span> roadmap
+        Gauss-<span>DataFlow</span> roadmap
       </h1>
       <p className="lede">
-        Open-source data movement, rebuilt on Rust and Next.js, compatible with
-        the open connector protocol ecosystem.
+        Open-source data movement by Gaussian Technologies — built on Rust and
+        Next.js. MIT licensed, forever.
       </p>
       <ul className="phases">
         {phases.map((phase) => (

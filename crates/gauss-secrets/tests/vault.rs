@@ -99,7 +99,7 @@ async fn vault_backend_full_envelope_flow() {
 
     // The same split/hydrate cycle the platform runs, against Vault.
     let schema = json!({"type": "object", "properties": {
-        "password": {"type": "string", "airbyte_secret": true}
+        "password": {"type": "string", "gauss_secret": true}
     }});
     let config = json!({"host": "db", "password": "pg-pass"});
     let (redacted, secrets) = gauss_secrets::split_config(&schema, &config);

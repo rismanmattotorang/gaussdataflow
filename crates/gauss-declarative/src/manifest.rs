@@ -17,7 +17,7 @@
 //! spec:
 //!   connection_specification:
 //!     type: object
-//!     properties: { api_key: { type: string, airbyte_secret: true } }
+//!     properties: { api_key: { type: string, gauss_secret: true } }
 //! ```
 
 use std::collections::BTreeMap;

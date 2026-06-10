@@ -80,13 +80,13 @@ fn manifest(url_base: &str) -> Value {
             "connection_specification": {
                 "type": "object",
                 "required": ["api_key"],
-                "properties": {"api_key": {"type": "string", "airbyte_secret": true}}
+                "properties": {"api_key": {"type": "string", "gauss_secret": true}}
             }
         }
     })
 }
 
-fn catalog(streams: &[(&str, &str)]) -> gauss_cdk::protocol::ConfiguredAirbyteCatalog {
+fn catalog(streams: &[(&str, &str)]) -> gauss_cdk::protocol::ConfiguredGaussCatalog {
     serde_json::from_value(json!({
         "streams": streams.iter().map(|(name, mode)| json!({
             "stream": {"name": name, "json_schema": {}},
@@ -101,7 +101,7 @@ async fn read(
     config: &Value,
     streams: &[(&str, &str)],
     state: Option<&Value>,
-) -> Vec<gauss_cdk::protocol::AirbyteMessage> {
+) -> Vec<gauss_cdk::protocol::GaussMessage> {
     let (mut emitter, buffer) = Emitter::buffer();
     DeclarativeSource
         .read(config, &catalog(streams), state, &mut emitter)
@@ -110,7 +110,7 @@ async fn read(
     Emitter::parse_buffer(&buffer)
 }
 
-fn records(messages: &[gauss_cdk::protocol::AirbyteMessage]) -> Vec<&Value> {
+fn records(messages: &[gauss_cdk::protocol::GaussMessage]) -> Vec<&Value> {
     messages
         .iter()
         .filter_map(|m| m.record.as_ref().map(|r| &r.data))

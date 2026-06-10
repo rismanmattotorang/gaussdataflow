@@ -1,5 +1,5 @@
 //! Postgres-backed job orchestration — gaussdataflow's replacement for
-//! Airbyte's Temporal dependency.
+//! Gauss's Temporal dependency.
 //!
 //! The `jobs` table *is* the queue: workers claim with `FOR UPDATE SKIP
 //! LOCKED` ([`gauss_store::repo::jobs`]), so any number of orchestrator

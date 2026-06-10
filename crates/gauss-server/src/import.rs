@@ -10,7 +10,7 @@
 //!   "workspace": "production",
 //!   "sources": [{
 //!     "name": "orders db",
-//!     "definition": {"name": "PostgreSQL", "dockerRepository": "airbyte/source-postgres", "dockerImageTag": "latest"},
+//!     "definition": {"name": "PostgreSQL", "dockerRepository": "example/source-postgres", "dockerImageTag": "latest"},
 //!     "configuration": {"host": "...", "password": "raw-secret-sealed-on-import"}
 //!   }],
 //!   "destinations": [ ... same shape ... ],

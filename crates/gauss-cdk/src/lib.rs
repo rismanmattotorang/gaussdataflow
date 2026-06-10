@@ -28,7 +28,7 @@ pub use emitter::Emitter;
 pub use gauss_protocol as protocol;
 
 use gauss_protocol::{
-    AirbyteCatalog, AirbyteConnectionStatus, ConfiguredAirbyteCatalog, ConnectorSpecification,
+    ConfiguredGaussCatalog, ConnectorSpecification, GaussCatalog, GaussConnectionStatus,
 };
 use serde_json::Value;
 
@@ -63,16 +63,16 @@ impl CdkError {
 pub trait Source: Send + Sync {
     fn spec(&self) -> ConnectorSpecification;
 
-    async fn check(&self, config: &Value) -> Result<AirbyteConnectionStatus, CdkError>;
+    async fn check(&self, config: &Value) -> Result<GaussConnectionStatus, CdkError>;
 
-    async fn discover(&self, config: &Value) -> Result<AirbyteCatalog, CdkError>;
+    async fn discover(&self, config: &Value) -> Result<GaussCatalog, CdkError>;
 
     /// Emit records (and state checkpoints) for the configured streams,
     /// resuming from `state` (a JSON array of state messages) when given.
     async fn read(
         &self,
         config: &Value,
-        catalog: &ConfiguredAirbyteCatalog,
+        catalog: &ConfiguredGaussCatalog,
         state: Option<&Value>,
         emitter: &mut Emitter,
     ) -> Result<(), CdkError>;
@@ -83,15 +83,15 @@ pub trait Source: Send + Sync {
 pub trait Destination: Send + Sync {
     fn spec(&self) -> ConnectorSpecification;
 
-    async fn check(&self, config: &Value) -> Result<AirbyteConnectionStatus, CdkError>;
+    async fn check(&self, config: &Value) -> Result<GaussConnectionStatus, CdkError>;
 
     /// Consume the incoming message stream. Contract: ack each STATE message
     /// (emit it back) only after everything before it is durably written.
     async fn write(
         &self,
         config: &Value,
-        catalog: &ConfiguredAirbyteCatalog,
-        messages: &mut (dyn Iterator<Item = gauss_protocol::AirbyteMessage> + Send),
+        catalog: &ConfiguredGaussCatalog,
+        messages: &mut (dyn Iterator<Item = gauss_protocol::GaussMessage> + Send),
         emitter: &mut Emitter,
     ) -> Result<(), CdkError>;
 }

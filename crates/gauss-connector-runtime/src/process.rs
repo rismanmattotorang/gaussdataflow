@@ -1,6 +1,6 @@
 use std::process::{ExitStatus, Stdio};
 
-use gauss_protocol::AirbyteMessage;
+use gauss_protocol::GaussMessage;
 use tokio::io::{AsyncBufReadExt, BufReader, Lines};
 use tokio::process::{Child, ChildStdin, ChildStdout};
 
@@ -10,7 +10,7 @@ use crate::launcher::{ConnectorCommand, Launcher};
 /// One line of connector STDOUT.
 #[derive(Debug)]
 pub enum ConnectorOutput {
-    Message(Box<AirbyteMessage>),
+    Message(Box<GaussMessage>),
     /// Anything that is not valid protocol JSON — connectors occasionally
     /// leak plain log lines; the platform must not crash on them.
     Raw(String),

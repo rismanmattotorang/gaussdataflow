@@ -1,7 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use gauss_protocol::ConfiguredAirbyteCatalog;
+use gauss_protocol::ConfiguredGaussCatalog;
 use serde::Deserialize;
 use serde_json::Value;
 use uuid::Uuid;
@@ -17,7 +17,7 @@ pub struct CreateConnection {
     pub name: String,
     pub source_id: Uuid,
     pub destination_id: Uuid,
-    /// ConfiguredAirbyteCatalog wire form.
+    /// ConfiguredGaussCatalog wire form.
     pub catalog: Value,
     pub schedule: Option<Value>,
     pub notifications: Option<Value>,
@@ -34,7 +34,7 @@ pub struct UpdateConnection {
 }
 
 fn validate_catalog(catalog: &Value) -> Result<(), ApiError> {
-    serde_json::from_value::<ConfiguredAirbyteCatalog>(catalog.clone())
+    serde_json::from_value::<ConfiguredGaussCatalog>(catalog.clone())
         .map_err(|err| ApiError::bad_request(format!("invalid configured catalog: {err}")))?;
     Ok(())
 }

@@ -28,7 +28,7 @@ use std::time::Duration;
 use gauss_connector_runtime::{
     ConnectorCommand, ConnectorOutput, ConnectorProcess, Launcher, RuntimeError,
 };
-use gauss_protocol::{AirbyteMessage, AirbyteMessageType, AirbyteTraceType, StreamStatus};
+use gauss_protocol::{GaussMessage, GaussMessageType, GaussTraceType, StreamStatus};
 use serde_json::Value;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc, watch};
@@ -57,9 +57,9 @@ pub enum SyncError {
 pub struct SyncRequest {
     pub source_config: Value,
     pub destination_config: Value,
-    /// ConfiguredAirbyteCatalog wire form.
+    /// ConfiguredGaussCatalog wire form.
     pub catalog: Value,
-    /// JSON array of AirbyteStateMessage wire forms to resume from.
+    /// JSON array of GaussStateMessage wire forms to resume from.
     pub state: Option<Value>,
 }
 
@@ -228,7 +228,7 @@ where
         };
 
         match msg.message_type {
-            AirbyteMessageType::Record | AirbyteMessageType::State => {
+            GaussMessageType::Record | GaussMessageType::State => {
                 let line = gauss_protocol::to_wire(&msg)?;
                 let write = async {
                     dst_stdin.write_all(line.as_bytes()).await?;
@@ -242,17 +242,17 @@ where
                         result.map_err(|_| SyncError::IdleTimeout(options.idle_timeout))??;
                     }
                 }
-                if msg.message_type == AirbyteMessageType::Record {
+                if msg.message_type == GaussMessageType::Record {
                     summary.records_synced += 1;
                     summary.bytes_synced += line.len() as u64 + 1;
                 }
             }
-            AirbyteMessageType::Trace => {
+            GaussMessageType::Trace => {
                 if let Some(err) = extract_error(&msg) {
                     source_error = Some(err);
                 }
                 if let Some(trace) = &msg.trace {
-                    if trace.trace_type == AirbyteTraceType::StreamStatus {
+                    if trace.trace_type == GaussTraceType::StreamStatus {
                         if let Some(status) = &trace.stream_status {
                             summary.stream_statuses.insert(
                                 status.stream_descriptor.name.clone(),
@@ -262,7 +262,7 @@ where
                     }
                 }
             }
-            AirbyteMessageType::Log => {
+            GaussMessageType::Log => {
                 if let Some(log) = &msg.log {
                     tracing::info!(target: "sync_source", "{}", log.message);
                 }
@@ -310,9 +310,9 @@ where
     Ok(summary)
 }
 
-fn extract_error(msg: &AirbyteMessage) -> Option<String> {
+fn extract_error(msg: &GaussMessage) -> Option<String> {
     let trace = msg.trace.as_ref()?;
-    if trace.trace_type == AirbyteTraceType::Error {
+    if trace.trace_type == GaussTraceType::Error {
         Some(
             trace
                 .error

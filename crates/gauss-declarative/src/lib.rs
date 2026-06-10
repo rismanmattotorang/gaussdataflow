@@ -48,7 +48,7 @@ impl Source for DeclarativeSource {
         spec
     }
 
-    async fn check(&self, config: &Value) -> Result<AirbyteConnectionStatus, CdkError> {
+    async fn check(&self, config: &Value) -> Result<GaussConnectionStatus, CdkError> {
         let manifest = Manifest::from_config(config)?;
         let stream_name = manifest
             .check
@@ -60,28 +60,28 @@ impl Source for DeclarativeSource {
 
         // Probe: fetch the first page and resolve the record selector.
         match fetch_page(&manifest, stream, config, &first_page_params(stream)?).await {
-            Ok((records, _)) => Ok(AirbyteConnectionStatus {
+            Ok((records, _)) => Ok(GaussConnectionStatus {
                 status: ConnectionStatus::Succeeded,
                 message: Some(format!(
                     "stream `{stream_name}` returned {} record(s) on the first page",
                     records.len()
                 )),
             }),
-            Err(error) => Ok(AirbyteConnectionStatus {
+            Err(error) => Ok(GaussConnectionStatus {
                 status: ConnectionStatus::Failed,
                 message: Some(error.to_string()),
             }),
         }
     }
 
-    async fn discover(&self, config: &Value) -> Result<AirbyteCatalog, CdkError> {
+    async fn discover(&self, config: &Value) -> Result<GaussCatalog, CdkError> {
         let manifest = Manifest::from_config(config)?;
-        Ok(AirbyteCatalog {
+        Ok(GaussCatalog {
             streams: manifest
                 .streams
                 .iter()
                 .map(|def| {
-                    let mut stream = AirbyteStream::new(
+                    let mut stream = GaussStream::new(
                         &def.name,
                         def.schema.clone().unwrap_or_else(
                             || json!({"type": "object", "additionalProperties": true}),
@@ -107,7 +107,7 @@ impl Source for DeclarativeSource {
     async fn read(
         &self,
         config: &Value,
-        catalog: &ConfiguredAirbyteCatalog,
+        catalog: &ConfiguredGaussCatalog,
         state: Option<&Value>,
         emitter: &mut Emitter,
     ) -> Result<(), CdkError> {
