@@ -32,13 +32,13 @@ const phases = [
   {
     id: 5,
     name: "Native connector SDK",
-    status: "next",
-    desc: "Rust CDK, low-code manifest interpreter, container-free execution",
+    status: "done",
+    desc: "Rust CDK, low-code manifest engine, container-free execution",
   },
   {
     id: 6,
     name: "Enterprise hardening",
-    status: "later",
+    status: "next",
     desc: "OAuth, RBAC, audit, vault-backed secrets, benchmarks",
   },
 ] as const;

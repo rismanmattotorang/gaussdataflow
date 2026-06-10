@@ -5,6 +5,8 @@ members = [
     "crates/gauss-connector-runtime",
     "crates/gauss-cli",
     "crates/gauss-mock-connector",
+    "crates/gauss-cdk",
+    "crates/gauss-declarative",
     "crates/gauss-secrets",
     "crates/gauss-store",
     "crates/gauss-server",
@@ -21,6 +23,7 @@ repository = "https://github.com/rismanmattotorang/gaussdataflow"
 
 [workspace.dependencies]
 gauss-protocol = { path = "crates/gauss-protocol" }
+gauss-cdk = { path = "crates/gauss-cdk" }
 gauss-connector-runtime = { path = "crates/gauss-connector-runtime" }
 gauss-secrets = { path = "crates/gauss-secrets" }
 gauss-store = { path = "crates/gauss-store" }
@@ -30,12 +33,15 @@ gauss-orchestrator = { path = "crates/gauss-orchestrator" }
 anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 cron = "0.12"
 http-body-util = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio",
     "postgres",
