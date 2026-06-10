@@ -15,6 +15,7 @@ anyhow = { workspace = true }
 axum = { workspace = true }
 clap = { workspace = true }
 gauss-connector-runtime = { workspace = true }
+gauss-orchestrator = { workspace = true }
 gauss-protocol = { workspace = true }
 gauss-secrets = { workspace = true }
 gauss-store = { workspace = true }

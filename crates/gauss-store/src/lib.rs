@@ -57,6 +57,14 @@ impl Store {
         repo::connections::ConnectionRepo { pool: &self.pool }
     }
 
+    pub fn jobs(&self) -> repo::jobs::JobRepo<'_> {
+        repo::jobs::JobRepo { pool: &self.pool }
+    }
+
+    pub fn connection_states(&self) -> repo::states::ConnectionStateRepo<'_> {
+        repo::states::ConnectionStateRepo { pool: &self.pool }
+    }
+
     /// Secrets backend persisting into this store's `secrets` table.
     pub fn secrets_backend(&self) -> PgSecretsBackend {
         PgSecretsBackend::new(self.pool.clone())

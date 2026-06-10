@@ -74,6 +74,20 @@ pub fn app(state: AppState) -> Router {
                 .patch(api::connections::update)
                 .delete(api::connections::delete),
         )
+        .route(
+            "/api/v1/connections/{id}/sync",
+            post(api::jobs::trigger_sync),
+        )
+        .route(
+            "/api/v1/connections/{id}/jobs",
+            get(api::jobs::list_for_connection),
+        )
+        .route(
+            "/api/v1/connections/{id}/state",
+            get(api::jobs::connection_state),
+        )
+        .route("/api/v1/jobs/{id}", get(api::jobs::get_one))
+        .route("/api/v1/jobs/{id}/cancel", post(api::jobs::cancel))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }

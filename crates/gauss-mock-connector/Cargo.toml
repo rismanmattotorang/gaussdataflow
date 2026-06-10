@@ -19,5 +19,6 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 gauss-connector-runtime = { workspace = true }
+gauss-sync = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }

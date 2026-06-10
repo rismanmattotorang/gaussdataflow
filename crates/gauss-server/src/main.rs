@@ -18,6 +18,9 @@ struct Cli {
     /// Optional connector-registry JSON to import at startup (idempotent)
     #[arg(long)]
     seed_registry: Option<PathBuf>,
+    /// Run the orchestration worker (job queue + scheduler) in-process
+    #[arg(long, env = "GAUSS_WORKER")]
+    worker: bool,
 }
 
 #[tokio::main]
@@ -48,7 +51,22 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    let app = gauss_server::app(AppState::new(store));
+    let state = AppState::new(store.clone());
+
+    if cli.worker {
+        let orchestrator = std::sync::Arc::new(gauss_orchestrator::Orchestrator::new(
+            store,
+            state.secrets.clone(),
+            gauss_orchestrator::WorkerOptions::default(),
+        ));
+        let (_shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+        // Leak the sender: the worker runs for the process lifetime.
+        std::mem::forget(_shutdown_tx);
+        tokio::spawn(orchestrator.run(shutdown_rx));
+        tracing::info!("orchestration worker enabled");
+    }
+
+    let app = gauss_server::app(state);
     let listener = tokio::net::TcpListener::bind(cli.bind).await?;
     tracing::info!("gauss-server listening on http://{}", cli.bind);
     axum::serve(listener, app).await?;

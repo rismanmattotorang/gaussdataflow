@@ -74,6 +74,29 @@ pub trait Launcher: Send + Sync {
     fn describe(&self) -> String;
 }
 
+impl Launcher for Box<dyn Launcher> {
+    fn build(&self, command: &ConnectorCommand) -> Result<Command, RuntimeError> {
+        self.as_ref().build(command)
+    }
+
+    fn describe(&self) -> String {
+        self.as_ref().describe()
+    }
+}
+
+/// Resolve a registry definition's `(dockerRepository, dockerImageTag)` to a
+/// launcher. The `exec:<path>` repository scheme runs a local binary instead
+/// of a container — used for native Rust connectors and hermetic tests.
+pub fn resolve_launcher(docker_repository: &str, docker_image_tag: &str) -> Box<dyn Launcher> {
+    if let Some(path) = docker_repository.strip_prefix("exec:") {
+        Box::new(ProcessLauncher::new(path))
+    } else {
+        Box::new(DockerLauncher::new(format!(
+            "{docker_repository}:{docker_image_tag}"
+        )))
+    }
+}
+
 /// Runs a connector image via the local Docker daemon, mounting input files
 /// read-only into the container.
 #[derive(Debug, Clone)]

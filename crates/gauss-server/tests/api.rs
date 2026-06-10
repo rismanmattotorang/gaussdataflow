@@ -487,3 +487,99 @@ async fn check_endpoint_runs_connector() {
     assert_eq!(status, StatusCode::OK, "{result}");
     assert_eq!(result["status"], "SUCCEEDED");
 }
+
+#[tokio::test]
+async fn sync_trigger_and_cancel_via_api() {
+    let Some(state) = test_state().await else {
+        return;
+    };
+    let (app, _ws, source_id, dest_id) = seed_actors(&state).await;
+
+    let (status, conn) = req(
+        &app,
+        "POST",
+        "/api/v1/connections",
+        Some(json!({
+            "name": "users sync",
+            "sourceId": source_id,
+            "destinationId": dest_id,
+            "catalog": configured_catalog()
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let conn_id = conn["connectionId"].as_str().unwrap().to_string();
+
+    // Trigger a sync job.
+    let (status, job) = req(
+        &app,
+        "POST",
+        &format!("/api/v1/connections/{conn_id}/sync"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{job}");
+    let job_id = job["id"].as_i64().unwrap();
+    assert_eq!(job["status"], "pending");
+    assert_eq!(job["jobType"], "sync");
+
+    // Duplicate trigger while pending → 409.
+    let (status, _) = req(
+        &app,
+        "POST",
+        &format!("/api/v1/connections/{conn_id}/sync"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    // Job is listed and fetchable with attempts.
+    let (status, list) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/connections/{conn_id}/jobs"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(list["data"].as_array().unwrap().len(), 1);
+    let (status, fetched) = req(&app, "GET", &format!("/api/v1/jobs/{job_id}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(fetched["attempts"].as_array().unwrap().is_empty());
+
+    // No state yet.
+    let (status, body) = req(
+        &app,
+        "GET",
+        &format!("/api/v1/connections/{conn_id}/state"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["state"].is_null());
+
+    // Cancel the pending job; re-cancel conflicts.
+    let (status, cancelled) =
+        req(&app, "POST", &format!("/api/v1/jobs/{job_id}/cancel"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cancelled["status"], "cancelled");
+    let (status, _) = req(&app, "POST", &format!("/api/v1/jobs/{job_id}/cancel"), None).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+
+    // Inactive connections cannot be triggered.
+    req(
+        &app,
+        "PATCH",
+        &format!("/api/v1/connections/{conn_id}"),
+        Some(json!({"status": "inactive"})),
+    )
+    .await;
+    let (status, _) = req(
+        &app,
+        "POST",
+        &format!("/api/v1/connections/{conn_id}/sync"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

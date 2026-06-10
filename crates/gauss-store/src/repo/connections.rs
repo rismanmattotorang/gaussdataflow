@@ -28,6 +28,13 @@ pub struct ConnectionRepo<'a> {
     pub(crate) pool: &'a PgPool,
 }
 
+#[derive(sqlx::FromRow)]
+struct SchedulableRow {
+    #[sqlx(flatten)]
+    connection: Connection,
+    last_job_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 const COLUMNS: &str = "id, workspace_id, source_id, destination_id, name, status, catalog, \
                        schedule, created_at, updated_at";
 
@@ -90,6 +97,32 @@ impl ConnectionRepo<'_> {
         .fetch_optional(self.pool)
         .await?
         .ok_or(StoreError::NotFound("connection"))
+    }
+
+    /// Scheduler input: active connections that have a schedule and no
+    /// pending/running job, with the creation time of their most recent job.
+    pub async fn list_schedulable(
+        &self,
+    ) -> Result<Vec<(Connection, Option<chrono::DateTime<chrono::Utc>>)>, StoreError> {
+        let rows: Vec<SchedulableRow> = sqlx::query_as(&format!(
+            "SELECT {COLUMNS},
+                    (SELECT MAX(j.created_at) FROM jobs j
+                     WHERE j.connection_id = connections.id) AS last_job_at
+             FROM connections
+             WHERE status = 'active'
+               AND schedule IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM jobs j
+                   WHERE j.connection_id = connections.id
+                     AND j.status IN ('pending', 'running')
+               )"
+        ))
+        .fetch_all(self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.connection, row.last_job_at))
+            .collect())
     }
 
     pub async fn delete(&self, id: Uuid) -> Result<(), StoreError> {

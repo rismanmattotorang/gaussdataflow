@@ -20,13 +20,13 @@ const phases = [
   {
     id: 3,
     name: "Orchestration & sync",
-    status: "next",
-    desc: "Job queue, replication worker, checkpointing, schedules",
+    status: "done",
+    desc: "Postgres job queue, replication worker, checkpointing, schedules",
   },
   {
     id: 4,
     name: "Web app",
-    status: "later",
+    status: "next",
     desc: "Connection builder, spec-driven forms, job monitoring (this app)",
   },
   {

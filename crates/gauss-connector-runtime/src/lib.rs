@@ -14,6 +14,6 @@ mod process;
 mod runner;
 
 pub use error::RuntimeError;
-pub use launcher::{ConnectorCommand, DockerLauncher, Launcher, ProcessLauncher};
+pub use launcher::{resolve_launcher, ConnectorCommand, DockerLauncher, Launcher, ProcessLauncher};
 pub use process::{ConnectorOutput, ConnectorProcess};
 pub use runner::{stage_json, ConnectorRunner, ReadEvent, ReadSummary};

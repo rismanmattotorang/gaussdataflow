@@ -2,6 +2,7 @@ pub mod actors;
 pub mod connections;
 pub mod definitions;
 mod error;
+pub mod jobs;
 pub mod workspaces;
 
 pub use error::ApiError;

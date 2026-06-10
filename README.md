@@ -8,7 +8,7 @@ gaussdataflow speaks the [Airbyte Protocol](https://docs.airbyte.com/understandi
 on the wire, so it can run the existing ecosystem of Airbyte-compatible
 connector images unchanged.
 
-**Read the plan:** [docs/STRATEGY.md](docs/STRATEGY.md) · **Current state:** Phases 0–2 complete.
+**Read the plan:** [docs/STRATEGY.md](docs/STRATEGY.md) · **Current state:** Phases 0–3 complete.
 
 ## Layout
 
@@ -20,7 +20,9 @@ connector images unchanged.
 | `crates/gauss-mock-connector` | A protocol-complete source connector in Rust; e2e test fixture |
 | `crates/gauss-store` | Postgres persistence (sqlx): workspaces, registry, actors, connections, jobs |
 | `crates/gauss-secrets` | Secret envelope: redacted configs + pluggable secret backends |
-| `crates/gauss-server` | `gauss-server` — axum config API (`/api/v1/...`) |
+| `crates/gauss-server` | `gauss-server` — axum config API (`/api/v1/...`); `--worker` runs orchestration in-process |
+| `crates/gauss-sync` | Replication worker: source→destination piping with acked-state checkpointing |
+| `crates/gauss-orchestrator` | Postgres-backed job queue, retries, heartbeats, schedules, cancellation |
 | `web/` | Next.js app (UI lands in Phase 4) |
 
 ## Quickstart
@@ -42,12 +44,18 @@ echo '{"count": 10}' > /tmp/faker.json
 ./target/debug/gauss check --image airbyte/source-faker:latest --config /tmp/faker.json
 ./target/debug/gauss read  --image airbyte/source-faker:latest --config /tmp/faker.json --full-refresh
 
-# Config API server (requires Postgres)
+# Config API server + orchestration worker (requires Postgres)
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/gauss_dev
-./target/debug/gauss-server --seed-registry crates/gauss-server/seed/registry.json
+./target/debug/gauss-server --worker \
+    --seed-registry crates/gauss-server/seed/registry.json
 curl -s localhost:8000/health
 curl -s -X POST localhost:8000/api/v1/workspaces \
     -H 'content-type: application/json' -d '{"name":"demo"}'
+# …create a source, destination, and connection, then:
+#   POST /api/v1/connections/{id}/sync     → enqueue a job (the worker runs it)
+#   GET  /api/v1/jobs/{id}                 → job + attempts
+#   GET  /api/v1/connections/{id}/state    → committed sync state
+# Connections sync on a schedule too: {"intervalMinutes": 60} or {"cron": "0 * * * *"}
 
 # Web app
 cd web && npm install && npm run dev

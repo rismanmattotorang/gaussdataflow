@@ -98,14 +98,33 @@ checkpoints, and stream-status traces.
 secrets never appear in API responses or the database's actor rows; `check`
 runs a real containerized connector end-to-end through the API.
 
-### Phase 3 — Orchestration & sync
-- Job queue on Postgres (`FOR UPDATE SKIP LOCKED`) — no JVM Temporal
-  dependency; revisit Temporal's Rust SDK only if saga complexity demands it
-- `gauss-sync` replication worker: source stdout → (optional mapping) →
-  destination stdin, with backpressure (bounded channels), STATE-message
-  checkpointing/flush acknowledgment, per-stream status tracking, retries with
-  exponential backoff, heartbeats/timeouts
-- Cron scheduling, manual trigger, cancellation
+### Phase 3 — Orchestration & sync (done)
+- [x] Job queue on Postgres (`FOR UPDATE SKIP LOCKED` in `gauss-store`) — no
+      JVM Temporal dependency; any number of workers, no coordinator. A
+      partial unique index guarantees one pending/running job per connection.
+- [x] `gauss-sync` replication worker: source stdout → destination stdin with
+      OS-pipe backpressure; destination stdout drained independently so the
+      ack path can never deadlock the record path; checkpoints fire only on
+      **destination-acked** STATE messages; per-stream status tracking; idle
+      timeouts; watch-channel cancellation
+- [x] `gauss-orchestrator`: claims jobs, hydrates configs, runs syncs,
+      persists checkpoints to `connection_states` mid-flight, retries with
+      exponential backoff up to `max_attempts`, heartbeats every attempt and
+      reaps stale jobs from crashed workers back into the queue
+- [x] Scheduling: `{"intervalMinutes": N}` and `{"cron": "<expr>"}` (5-field
+      or seconds-resolution) schedules on connections; manual trigger
+      (`POST /connections/{id}/sync`), job listing/inspection, and
+      cancellation (pending jobs die immediately; running jobs stop at the
+      next message) via the API; `gauss-server --worker` runs the
+      orchestrator in-process
+- [x] `exec:<path>` launcher scheme: run a connector as a local binary
+      instead of a container — hermetic tests now, native Rust connectors in
+      Phase 5
+
+**Exit criteria (met):** an API-triggered job is claimed by the worker,
+replicates source→destination with mid-flight checkpoints, persists resumable
+per-stream state (verified: second sync reads zero already-synced records),
+retries transient failures, and honors cancellation.
 
 ### Phase 4 — Web app (Next.js)
 - App Router + React Server Components against `gauss-server`

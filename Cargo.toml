@@ -8,6 +8,8 @@ members = [
     "crates/gauss-secrets",
     "crates/gauss-store",
     "crates/gauss-server",
+    "crates/gauss-sync",
+    "crates/gauss-orchestrator",
 ]
 
 [workspace.package]
@@ -21,12 +23,15 @@ gauss-protocol = { path = "crates/gauss-protocol" }
 gauss-connector-runtime = { path = "crates/gauss-connector-runtime" }
 gauss-secrets = { path = "crates/gauss-secrets" }
 gauss-store = { path = "crates/gauss-store" }
+gauss-sync = { path = "crates/gauss-sync" }
+gauss-orchestrator = { path = "crates/gauss-orchestrator" }
 
 anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env"] }
+cron = "0.12"
 http-body-util = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
