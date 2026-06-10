@@ -41,6 +41,36 @@ const phases = [
     status: "done",
     desc: "API tokens + RBAC, audit log, OAuth2, Vault secrets, webhooks, import",
   },
+  {
+    id: 7,
+    name: "Operator experience",
+    status: "done",
+    desc: "Ratatui terminal console (gauss-tui), mission-control dashboard, fleet stats & activity APIs, MCP tool annotations + structured output",
+  },
+  {
+    id: 8,
+    name: "MCP gateway: transport & identity",
+    status: "next",
+    desc: "Streamable HTTP at /mcp, OAuth 2.1 resource server, RBAC + audit parity for agents, long-running task handles",
+  },
+  {
+    id: 9,
+    name: "Gateway governance",
+    status: "later",
+    desc: "Role-scoped virtual tool surfaces, per-token rate limits, guardrails, MCP Registry publishing",
+  },
+  {
+    id: 10,
+    name: "Agentic data engineering",
+    status: "later",
+    desc: "AI connector builder targeting the declarative YAML engine, failure-triage agent, schema-drift policy, agent context layer",
+  },
+  {
+    id: 11,
+    name: "Embedded agents & evals",
+    status: "later",
+    desc: "First-party ops agent, server-side human approval queue, trajectory evals in CI",
+  },
 ] as const;
 
 const badgeLabel = { done: "done", next: "up next", later: "planned" } as const;

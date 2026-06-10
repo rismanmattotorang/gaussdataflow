@@ -93,6 +93,8 @@ pub fn app(state: AppState) -> Router {
             "/api/v1/connections/{id}/state",
             get(api::jobs::connection_state),
         )
+        .route("/api/v1/jobs", get(api::jobs::list_recent))
+        .route("/api/v1/stats", get(api::jobs::platform_stats))
         .route("/api/v1/jobs/{id}", get(api::jobs::get_one))
         .route("/api/v1/jobs/{id}/cancel", post(api::jobs::cancel))
         .route(

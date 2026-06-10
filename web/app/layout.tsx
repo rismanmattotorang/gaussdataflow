@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ToastHost } from "@/components/ui";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({
           </a>
         </nav>
         {children}
+        <ToastHost />
       </body>
     </html>
   );

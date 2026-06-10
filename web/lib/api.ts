@@ -60,8 +60,36 @@ export interface Job {
   jobType: string;
   status: string;
   createdAt: string;
+  startedAt?: string;
   completedAt?: string;
   attempts?: Attempt[];
+}
+
+export interface JobOverview {
+  id: number;
+  connectionId: string;
+  connectionName: string;
+  workspaceId: string;
+  jobType: string;
+  status: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  recordsSynced?: number;
+}
+
+export interface PlatformStats {
+  workspaces: number;
+  sources: number;
+  destinations: number;
+  connections: number;
+  jobsTotal: number;
+  jobsPending: number;
+  jobsRunning: number;
+  jobsSucceeded24h: number;
+  jobsFailed24h: number;
+  recordsSynced24h: number;
+  lastSuccessAt?: string;
 }
 
 export interface Attempt {
@@ -163,5 +191,25 @@ export const api = {
     get: (id: number) => request<Job>(`/api/v1/jobs/${id}`),
     cancel: (id: number) =>
       request<Job>(`/api/v1/jobs/${id}/cancel`, { method: "POST" }),
+    recent: (workspaceId?: string, limit = 30) =>
+      list<JobOverview>(
+        `/api/v1/jobs?limit=${limit}` +
+          (workspaceId ? `&workspaceId=${workspaceId}` : ""),
+      ),
   },
+  stats: (workspaceId?: string) =>
+    request<PlatformStats>(
+      `/api/v1/stats${workspaceId ? `?workspaceId=${workspaceId}` : ""}`,
+    ),
 };
+
+/** Human form of a connection schedule. */
+export function scheduleLabel(
+  schedule: Record<string, unknown> | null | undefined,
+): string {
+  if (!schedule) return "manual";
+  if (typeof schedule.intervalMinutes === "number")
+    return `every ${schedule.intervalMinutes}m`;
+  if (typeof schedule.cron === "string") return `cron ${schedule.cron}`;
+  return "custom";
+}

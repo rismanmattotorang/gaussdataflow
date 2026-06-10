@@ -210,3 +210,61 @@ async fn agent_flow_end_to_end() {
     let unknown = call(&gw, "definitely_not_a_tool", json!({})).await;
     assert!(unknown.is_err());
 }
+
+#[tokio::test]
+async fn protocol_negotiation_annotations_and_observability_tools() {
+    let Some(gw) = gateway().await else { return };
+
+    // Unknown requested revision → server offers its newest supported one.
+    let init = rpc(
+        &gw,
+        1,
+        "initialize",
+        json!({"protocolVersion": "1999-01-01", "capabilities": {}}),
+    )
+    .await;
+    assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
+    // A supported revision is echoed back.
+    let init = rpc(
+        &gw,
+        2,
+        "initialize",
+        json!({"protocolVersion": "2025-03-26", "capabilities": {}}),
+    )
+    .await;
+    assert_eq!(init["result"]["protocolVersion"], "2025-03-26");
+
+    // Every tool carries behaviour annotations; spot-check the hints.
+    let tools = rpc(&gw, 3, "tools/list", json!({})).await;
+    for tool in tools["result"]["tools"].as_array().unwrap() {
+        let name = tool["name"].as_str().unwrap();
+        let ann = &tool["annotations"];
+        assert!(ann.is_object(), "tool {name} is missing annotations");
+        if name.starts_with("list_") || name.starts_with("get_") {
+            assert_eq!(ann["readOnlyHint"], true, "{name} should be read-only");
+        }
+    }
+    let cancel = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "cancel_job")
+        .unwrap();
+    assert_eq!(cancel["annotations"]["destructiveHint"], true);
+
+    // Fleet observability tools work and emit structured content.
+    let stats = call(&gw, "get_platform_stats", json!({})).await.unwrap();
+    assert_eq!(stats["connections"], 0);
+    let response = rpc(
+        &gw,
+        4,
+        "tools/call",
+        json!({"name": "list_recent_jobs", "arguments": {}}),
+    )
+    .await;
+    assert_eq!(response["result"]["isError"], false);
+    assert!(response["result"]["structuredContent"]["data"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}

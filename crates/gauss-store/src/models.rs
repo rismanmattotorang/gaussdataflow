@@ -97,6 +97,47 @@ impl Job {
     }
 }
 
+/// A job enriched with its connection's name and workspace, plus the record
+/// count of its latest attempt — the shape dashboards and the TUI consume.
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct JobOverview {
+    pub id: i64,
+    pub connection_id: Uuid,
+    pub connection_name: String,
+    pub workspace_id: Uuid,
+    pub job_type: String,
+    pub status: String,
+    pub scheduled_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<DateTime<Utc>>,
+    pub cancel_requested: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub records_synced: Option<i64>,
+}
+
+/// Aggregate platform health, optionally scoped to one workspace.
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformStats {
+    pub workspaces: i64,
+    pub sources: i64,
+    pub destinations: i64,
+    pub connections: i64,
+    pub jobs_total: i64,
+    pub jobs_pending: i64,
+    pub jobs_running: i64,
+    pub jobs_succeeded_24h: i64,
+    pub jobs_failed_24h: i64,
+    pub records_synced_24h: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_success_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Attempt {

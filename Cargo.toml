@@ -13,6 +13,7 @@ members = [
     "crates/gauss-mcp",
     "crates/gauss-sync",
     "crates/gauss-orchestrator",
+    "crates/gauss-tui",
 ]
 
 [workspace.package]

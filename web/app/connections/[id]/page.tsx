@@ -1,16 +1,110 @@
 "use client";
 
-// Connection detail: sync trigger, live job monitoring, committed state.
+// Connection detail: sync trigger, live job monitoring with attempt
+// drill-down, committed state.
 
 import { useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { api } from "@/lib/api";
-import { ErrorNote, StatusBadge, timeAgo, usePoll } from "@/components/ui";
+import { api, scheduleLabel, type Job } from "@/lib/api";
+import {
+  Breadcrumbs,
+  ErrorNote,
+  StatusBadge,
+  duration,
+  fmtNum,
+  timeAgo,
+  toast,
+  usePoll,
+} from "@/components/ui";
+
+function JobRow({ job, onCancel }: { job: Job; onCancel: () => void }) {
+  const [detail, setDetail] = useState<Job | null>(null);
+  const [open, setOpen] = useState(false);
+
+  async function toggle() {
+    if (!open) {
+      try {
+        setDetail(await api.jobs.get(job.id));
+      } catch {
+        setDetail(null);
+      }
+    }
+    setOpen(!open);
+  }
+
+  const records = detail?.attempts?.length
+    ? detail.attempts[detail.attempts.length - 1].recordsSynced
+    : undefined;
+
+  return (
+    <>
+      <tr onClick={toggle} style={{ cursor: "pointer" }}>
+        <td className="meta">
+          {open ? "▾" : "▸"} #{job.id}
+        </td>
+        <td>
+          <StatusBadge status={job.status} />
+        </td>
+        <td className="meta">{duration(job.startedAt, job.completedAt)}</td>
+        <td className="meta">{timeAgo(job.createdAt)}</td>
+        <td className="meta">{timeAgo(job.completedAt)}</td>
+        <td>
+          {(job.status === "pending" || job.status === "running") && (
+            <button
+              className="danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel();
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </td>
+      </tr>
+      {open && (
+        <tr className="attempt-row">
+          <td colSpan={6}>
+            {!detail?.attempts?.length ? (
+              <span className="meta">No attempts recorded yet.</span>
+            ) : (
+              <table className="attempts">
+                <thead>
+                  <tr>
+                    <th>Attempt</th>
+                    <th>Status</th>
+                    <th>Records</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.attempts.map((a) => (
+                    <tr key={a.id}>
+                      <td className="meta">{a.attemptNumber}</td>
+                      <td>
+                        <StatusBadge status={a.status} />
+                      </td>
+                      <td className="meta">{fmtNum(a.recordsSynced)}</td>
+                      <td className="meta">{duration(a.createdAt, a.endedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {records !== undefined && (
+              <p className="hint">
+                Latest attempt moved {fmtNum(records)} records.
+              </p>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 export default function ConnectionPage() {
   const { id } = useParams<{ id: string }>();
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: connection, error } = usePoll(
     () => api.connections.get(id),
@@ -21,13 +115,23 @@ export default function ConnectionPage() {
   const jobs = usePoll(() => api.connections.jobs(id), 3000, [id]);
   const state = usePoll(() => api.connections.state(id), 5000, [id]);
 
-  async function act(fn: () => Promise<unknown>) {
-    setActionError(null);
+  async function syncNow() {
     try {
-      await fn();
+      const job = await api.connections.sync(id);
+      toast(`Sync queued as job #${job.id}`);
       jobs.refresh();
     } catch (e) {
-      setActionError((e as Error).message);
+      toast((e as Error).message, "err");
+    }
+  }
+
+  async function cancel(jobId: number) {
+    try {
+      await api.jobs.cancel(jobId);
+      toast(`Cancellation requested for job #${jobId}`);
+      jobs.refresh();
+    } catch (e) {
+      toast((e as Error).message, "err");
     }
   }
 
@@ -37,6 +141,16 @@ export default function ConnectionPage() {
 
   return (
     <main>
+      <Breadcrumbs
+        items={[
+          { label: "Mission control", href: "/" },
+          {
+            label: "Workspace",
+            href: connection ? `/workspaces/${connection.workspaceId}` : undefined,
+          },
+          { label: connection?.name ?? "Connection" },
+        ]}
+      />
       <h1>{connection?.name ?? "Connection"}</h1>
       <p className="lede">
         {connection && (
@@ -45,27 +159,23 @@ export default function ConnectionPage() {
             <span className="meta">
               {connection.catalog.streams.length} stream
               {connection.catalog.streams.length === 1 ? "" : "s"} ·{" "}
-              {connection.schedule
-                ? `schedule ${JSON.stringify(connection.schedule)}`
-                : "manual sync"}{" "}
-              ·{" "}
-              <Link href={`/workspaces/${connection.workspaceId}`}>
-                back to workspace
-              </Link>
+              {scheduleLabel(connection.schedule)}
             </span>
           </>
         )}
       </p>
-      <ErrorNote error={error ?? jobs.error ?? actionError} />
+      <ErrorNote error={error ?? jobs.error} />
 
       <div className="form-row">
         <button
           disabled={!connection || hasActive || connection.status !== "active"}
-          onClick={() => act(() => api.connections.sync(id))}
+          onClick={syncNow}
         >
           Sync now
         </button>
-        {hasActive && <span className="meta">a job is already queued/running</span>}
+        {hasActive && (
+          <span className="meta">a job is already queued/running</span>
+        )}
       </div>
 
       <h2>Streams</h2>
@@ -93,39 +203,26 @@ export default function ConnectionPage() {
         <p className="meta">No jobs yet — trigger your first sync.</p>
       )}
       {jobs.data && jobs.data.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Completed</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.data.map((job) => (
-              <tr key={job.id}>
-                <td>{job.id}</td>
-                <td>
-                  <StatusBadge status={job.status} />
-                </td>
-                <td className="meta">{timeAgo(job.createdAt)}</td>
-                <td className="meta">{timeAgo(job.completedAt)}</td>
-                <td>
-                  {(job.status === "pending" || job.status === "running") && (
-                    <button
-                      className="danger"
-                      onClick={() => act(() => api.jobs.cancel(job.id))}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </td>
+        <>
+          <p className="hint">Click a job to see its attempt history.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Created</th>
+                <th>Completed</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {jobs.data.map((job) => (
+                <JobRow key={job.id} job={job} onCancel={() => cancel(job.id)} />
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
 
       <h2>Committed state</h2>

@@ -9,17 +9,32 @@ use gauss_store::{ActorType, NewActor, NewConnection, NewDefinition};
 
 use crate::Gateway;
 
-/// MCP tool descriptors (name, description, JSON-Schema input).
+/// Behaviour annotations (MCP 2025-03-26): `read_only` marks tools that never
+/// mutate platform state; `external` marks tools that launch connectors and
+/// touch systems beyond the platform (open world).
+fn annotate(title: &str, read_only: bool, destructive: bool, external: bool) -> Value {
+    json!({
+        "title": title,
+        "readOnlyHint": read_only,
+        "destructiveHint": destructive,
+        "idempotentHint": read_only,
+        "openWorldHint": external,
+    })
+}
+
+/// MCP tool descriptors (name, description, JSON-Schema input, annotations).
 pub fn definitions() -> Value {
     json!([
         {
             "name": "list_workspaces",
             "description": "List all workspaces.",
+            "annotations": annotate("List workspaces", true, false, false),
             "inputSchema": {"type": "object", "properties": {}}
         },
         {
             "name": "create_workspace",
             "description": "Create a workspace to hold sources, destinations, and connections.",
+            "annotations": annotate("Create workspace", false, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"name": {"type": "string"}},
@@ -27,8 +42,30 @@ pub fn definitions() -> Value {
             }
         },
         {
+            "name": "get_platform_stats",
+            "description": "Aggregate platform health: counts of sources/destinations/connections, queue depth (pending/running), 24h success and failure totals, records moved in 24h, and the last successful sync time. Scope to one workspace with workspaceId, or omit it for the whole fleet. Call this first to orient.",
+            "annotations": annotate("Platform stats", true, false, false),
+            "inputSchema": {
+                "type": "object",
+                "properties": {"workspaceId": {"type": "string"}}
+            }
+        },
+        {
+            "name": "list_recent_jobs",
+            "description": "Recent jobs across every connection (newest first), each with its connection name and records synced. Scope with workspaceId; limit defaults to 50.",
+            "annotations": annotate("Recent jobs", true, false, false),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workspaceId": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 500}
+                }
+            }
+        },
+        {
             "name": "list_connector_definitions",
             "description": "Browse the connector registry. Returns available source or destination connector definitions with their ids and config specs.",
+            "annotations": annotate("Browse connector registry", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"type": {"type": "string", "enum": ["source", "destination"]}},
@@ -38,6 +75,7 @@ pub fn definitions() -> Value {
         {
             "name": "register_connector",
             "description": "Register (or update) a connector definition in the registry by docker image, e.g. a connector image compatible with the open Gauss protocol.",
+            "annotations": annotate("Register connector", false, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -54,6 +92,7 @@ pub fn definitions() -> Value {
         {
             "name": "create_source",
             "description": "Create a configured source in a workspace. Secret fields (marked gauss_secret in the spec) are sealed into the secrets backend automatically.",
+            "annotations": annotate("Create source", false, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -68,6 +107,7 @@ pub fn definitions() -> Value {
         {
             "name": "create_destination",
             "description": "Create a configured destination in a workspace (same shape as create_source).",
+            "annotations": annotate("Create destination", false, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -82,6 +122,7 @@ pub fn definitions() -> Value {
         {
             "name": "list_sources",
             "description": "List configured sources in a workspace (configurations are secret-redacted).",
+            "annotations": annotate("List sources", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"workspaceId": {"type": "string"}},
@@ -91,6 +132,7 @@ pub fn definitions() -> Value {
         {
             "name": "list_destinations",
             "description": "List configured destinations in a workspace.",
+            "annotations": annotate("List destinations", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"workspaceId": {"type": "string"}},
@@ -100,6 +142,7 @@ pub fn definitions() -> Value {
         {
             "name": "check_source",
             "description": "Validate a source's credentials/connectivity by running the connector's check operation.",
+            "annotations": annotate("Check source connectivity", true, false, true),
             "inputSchema": {
                 "type": "object",
                 "properties": {"sourceId": {"type": "string"}},
@@ -109,6 +152,7 @@ pub fn definitions() -> Value {
         {
             "name": "discover_source",
             "description": "Run schema discovery on a source: returns the catalog of streams (names, JSON schemas, supported sync modes) it can replicate.",
+            "annotations": annotate("Discover streams", true, false, true),
             "inputSchema": {
                 "type": "object",
                 "properties": {"sourceId": {"type": "string"}},
@@ -118,6 +162,7 @@ pub fn definitions() -> Value {
         {
             "name": "create_connection",
             "description": "Wire a source to a destination with a configured catalog (streams + sync modes). Optionally set a schedule: {\"intervalMinutes\": N} or {\"cron\": \"0 * * * *\"}.",
+            "annotations": annotate("Create connection", false, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -133,6 +178,7 @@ pub fn definitions() -> Value {
         {
             "name": "list_connections",
             "description": "List connections in a workspace.",
+            "annotations": annotate("List connections", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"workspaceId": {"type": "string"}},
@@ -142,6 +188,7 @@ pub fn definitions() -> Value {
         {
             "name": "trigger_sync",
             "description": "Enqueue a sync job for a connection. Fails with a conflict if one is already pending or running.",
+            "annotations": annotate("Trigger sync", false, false, true),
             "inputSchema": {
                 "type": "object",
                 "properties": {"connectionId": {"type": "string"}},
@@ -151,6 +198,7 @@ pub fn definitions() -> Value {
         {
             "name": "list_jobs",
             "description": "List recent jobs for a connection (newest first).",
+            "annotations": annotate("List jobs", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"connectionId": {"type": "string"}},
@@ -160,6 +208,7 @@ pub fn definitions() -> Value {
         {
             "name": "get_job",
             "description": "Get a job with its attempts (status, records synced, timestamps).",
+            "annotations": annotate("Get job", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"jobId": {"type": "integer"}},
@@ -169,6 +218,7 @@ pub fn definitions() -> Value {
         {
             "name": "cancel_job",
             "description": "Cancel a job: pending jobs stop immediately, running jobs stop at the next message boundary.",
+            "annotations": annotate("Cancel job", false, true, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"jobId": {"type": "integer"}},
@@ -178,6 +228,7 @@ pub fn definitions() -> Value {
         {
             "name": "get_connection_state",
             "description": "Read a connection's committed sync state (per-stream cursors).",
+            "annotations": annotate("Get connection state", true, false, false),
             "inputSchema": {
                 "type": "object",
                 "properties": {"connectionId": {"type": "string"}},
@@ -196,6 +247,13 @@ fn arg_str(args: &Value, key: &str) -> Result<String, String> {
 
 fn arg_uuid(args: &Value, key: &str) -> Result<Uuid, String> {
     Uuid::parse_str(&arg_str(args, key)?).map_err(|e| format!("`{key}` is not a UUID: {e}"))
+}
+
+fn optional_uuid(args: &Value, key: &str) -> Result<Option<Uuid>, String> {
+    match args.get(key).filter(|v| !v.is_null()) {
+        Some(_) => Ok(Some(arg_uuid(args, key)?)),
+        None => Ok(None),
+    }
 }
 
 fn arg_i64(args: &Value, key: &str) -> Result<i64, String> {
@@ -231,6 +289,29 @@ impl Gateway {
                     .map_err(err)?,
             )
             .map_err(err),
+            "get_platform_stats" => {
+                let workspace = optional_uuid(&args, "workspaceId")?;
+                serde_json::to_value(
+                    self.store
+                        .jobs()
+                        .platform_stats(workspace)
+                        .await
+                        .map_err(err)?,
+                )
+                .map_err(err)
+            }
+            "list_recent_jobs" => {
+                let workspace = optional_uuid(&args, "workspaceId")?;
+                let limit = args.get("limit").and_then(Value::as_i64).unwrap_or(50);
+                serde_json::to_value(
+                    self.store
+                        .jobs()
+                        .list_recent(workspace, limit)
+                        .await
+                        .map_err(err)?,
+                )
+                .map_err(err)
+            }
             "list_connector_definitions" => serde_json::to_value(
                 self.store
                     .definitions()
