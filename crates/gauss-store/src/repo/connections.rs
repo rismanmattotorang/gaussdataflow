@@ -14,6 +14,7 @@ pub struct NewConnection {
     /// ConfiguredAirbyteCatalog wire form.
     pub catalog: Value,
     pub schedule: Option<Value>,
+    pub notifications: Option<Value>,
 }
 
 #[derive(Default)]
@@ -22,6 +23,7 @@ pub struct ConnectionPatch {
     pub status: Option<ConnectionStatus>,
     pub catalog: Option<Value>,
     pub schedule: Option<Value>,
+    pub notifications: Option<Value>,
 }
 
 pub struct ConnectionRepo<'a> {
@@ -36,14 +38,14 @@ struct SchedulableRow {
 }
 
 const COLUMNS: &str = "id, workspace_id, source_id, destination_id, name, status, catalog, \
-                       schedule, created_at, updated_at";
+                       schedule, notifications, created_at, updated_at";
 
 impl ConnectionRepo<'_> {
     pub async fn create(&self, conn: &NewConnection) -> Result<Connection, StoreError> {
         sqlx::query_as::<_, Connection>(&format!(
             "INSERT INTO connections
-                 (workspace_id, source_id, destination_id, name, catalog, schedule)
-             VALUES ($1, $2, $3, $4, $5, $6)
+                 (workspace_id, source_id, destination_id, name, catalog, schedule, notifications)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING {COLUMNS}"
         ))
         .bind(conn.workspace_id)
@@ -52,6 +54,7 @@ impl ConnectionRepo<'_> {
         .bind(&conn.name)
         .bind(Json(conn.catalog.clone()))
         .bind(conn.schedule.clone().map(Json))
+        .bind(conn.notifications.clone().map(Json))
         .fetch_one(self.pool)
         .await
         .map_err(|e| StoreError::from_db(e, "connection"))
@@ -85,6 +88,7 @@ impl ConnectionRepo<'_> {
                  status = COALESCE($3, status),
                  catalog = COALESCE($4, catalog),
                  schedule = COALESCE($5, schedule),
+                 notifications = COALESCE($6, notifications),
                  updated_at = now()
              WHERE id = $1
              RETURNING {COLUMNS}"
@@ -94,6 +98,7 @@ impl ConnectionRepo<'_> {
         .bind(patch.status.map(|s| s.as_str()))
         .bind(patch.catalog.clone().map(Json))
         .bind(patch.schedule.clone().map(Json))
+        .bind(patch.notifications.clone().map(Json))
         .fetch_optional(self.pool)
         .await?
         .ok_or(StoreError::NotFound("connection"))

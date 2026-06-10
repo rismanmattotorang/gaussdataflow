@@ -13,6 +13,9 @@
 //!
 //! Backends are pluggable (Postgres in `gauss-store` today; a vault later).
 
+pub mod vault;
+pub use vault::VaultSecretsBackend;
+
 use std::collections::BTreeMap;
 
 use serde_json::{json, Map, Value};

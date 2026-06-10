@@ -55,12 +55,14 @@ and JVMs burn memory. gaussdataflow is built for what comes next:
 | **Web console** | Next.js app: workspaces, spec-driven connector setup forms (rendered live from each connector's JSON Schema), stream-level connection builder with discovery, one-click sync, live job monitoring, committed-state inspection |
 | **REST API** | Full control plane at `/api/v1/*`: workspaces, connector registry, sources/destinations (with `check` + `discover`), connections, jobs, state |
 | **MCP gateway** | `gauss-mcp` — 17 tools over stdio; plug into Claude Desktop, Claude Code, or any MCP client |
+| **Security & governance** | API tokens with RBAC (admin/editor/viewer), audit log of every mutation, generic OAuth2 plumbing with sealed tokens, secrets in Postgres or HashiCorp Vault |
 | **Orchestrator** | Postgres-backed queue, scheduler (cron + interval), retries, heartbeats, cancellation — embedded in the server (`--worker`) or scaled out as separate processes |
 | **Replication engine** | `gauss-sync` — pipe-backpressured source→destination streaming with destination-acked checkpointing |
 | **Connector registry** | Seeded with 35+ popular sources & destinations; import the full public catalog with one API call; register anything by image or local binary |
 | **Rust CDK** | `gauss-cdk` — implement two traits, get a complete protocol-correct connector binary; container-free execution via the `exec:` launcher |
 | **Low-code engine** | `gauss-declarative` — describe an HTTP API in a YAML manifest (auth, pagination, incremental cursors) and run it as a native source: no container, no code |
 | **Dev CLI** | `gauss spec\|check\|discover\|read` — the connector development loop against any image or binary |
+| **Operations** | Job webhooks on completion, one-command deployment import, replication benchmark harness |
 
 ## Quickstart
 
@@ -120,6 +122,33 @@ schedule, triggers the job, and polls it — through typed, validated tools:
 `list_sources` · `list_destinations` · `check_source` · `discover_source` ·
 `create_connection` · `list_connections` · `trigger_sync` · `list_jobs` ·
 `get_job` · `cancel_job` · `get_connection_state`
+
+## 🔐 Locked down by default-deny
+
+Flip on `--require-auth` and every API request needs a bearer token; tokens
+carry roles and only their SHA-256 hash ever touches the database:
+
+```sh
+gauss-server --create-token ops:admin        # prints the token once
+gauss-server --create-token ci:editor       # mutations, no token management
+gauss-server --create-token dashboards:viewer  # read-only
+gauss-server --require-auth --worker
+```
+
+Every mutation lands in the audit log (`GET /api/v1/audit`) with its subject,
+path, and outcome. Raw secret values can live in Postgres (default) or
+**HashiCorp Vault** (`--secrets-backend vault` + `VAULT_ADDR`/`VAULT_TOKEN`) —
+either way the API, rows, and logs only ever see `{"_secret": id}`
+references. For connectors that authenticate users via OAuth2, the server
+does the parts a browser must not: CSRF state issuance and the
+code-for-token exchange, sealing the returned tokens before they reach the
+caller (`POST /api/v1/oauth/authorize_url`, `POST /api/v1/oauth/complete`).
+
+Moving in? `gauss-server --import-file deployment.json` bootstraps a
+workspace — definitions, configured sources/destinations (secrets sealed on
+import), and scheduled connections — from one portable document. Job
+completion can ping your systems back: set
+`{"webhookUrl": "https://…"}` in a connection's `notifications`.
 
 ## 🧩 Connectors without containers
 
@@ -217,10 +246,23 @@ against Postgres 16.
 DATABASE_URL=postgres://… cargo test --workspace
 ```
 
-## Roadmap
+There's a benchmark harness too — on a modest container the replication
+engine moves **~56k records/s (≈10 MiB/s)** through two real connector
+processes with full protocol serialization and destination-acked
+checkpoints:
 
-OAuth flows, RBAC, audit trails, vault-backed secrets, and performance
-benchmarks — see [docs/STRATEGY.md](docs/STRATEGY.md).
+```sh
+cargo test -p gauss-mock-connector --test bench --release -- --ignored --nocapture
+```
+
+## Status
+
+All six phases of the founding roadmap have shipped: wire protocol &
+connector runtime, persistence & sealed secrets, Postgres-native
+orchestration, the web console & MCP gateway, the Rust CDK & declarative
+engine, and enterprise hardening (RBAC, audit, OAuth2, Vault, webhooks,
+import tooling). The build history and architecture decisions live in
+[docs/STRATEGY.md](docs/STRATEGY.md).
 
 ## License
 
