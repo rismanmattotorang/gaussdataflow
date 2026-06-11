@@ -174,6 +174,15 @@ impl ApiClient {
         self.send(req).await
     }
 
+    async fn patch<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: Value,
+    ) -> anyhow::Result<T> {
+        self.send(self.http.patch(format!("{}{path}", self.base)).json(&body))
+            .await
+    }
+
     pub async fn workspaces(&self) -> anyhow::Result<Vec<Workspace>> {
         Ok(self
             .get::<DataEnvelope<Workspace>>("/api/v1/workspaces")
@@ -223,6 +232,22 @@ impl ApiClient {
             .get::<DataEnvelope<Actor>>(&format!("/api/v1/{kind}?workspaceId={workspace}"))
             .await?
             .data)
+    }
+
+    pub async fn connection(&self, id: Uuid) -> anyhow::Result<Connection> {
+        self.get(&format!("/api/v1/connections/{id}")).await
+    }
+
+    pub async fn set_connection_status(
+        &self,
+        id: Uuid,
+        status: &str,
+    ) -> anyhow::Result<Connection> {
+        self.patch(
+            &format!("/api/v1/connections/{id}"),
+            serde_json::json!({ "status": status }),
+        )
+        .await
     }
 
     pub async fn connection_jobs(&self, connection: Uuid) -> anyhow::Result<Vec<Job>> {

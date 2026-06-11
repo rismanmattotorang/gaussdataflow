@@ -18,6 +18,13 @@ pub enum Screen {
     Connection,
 }
 
+/// Which pane owns ↑↓/⏎ on the fleet screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HomeFocus {
+    Workspaces,
+    Activity,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
     Connections,
@@ -55,8 +62,12 @@ pub enum Overlay {
     Help,
     /// Text input for a new workspace name.
     Input(String),
-    /// Committed state of the focused connection, pretty-printed.
-    StateJson(String),
+    /// Committed state of the focused connection, pretty-printed; `scroll`
+    /// is the vertical offset driven by ↑↓.
+    StateJson {
+        text: String,
+        scroll: u16,
+    },
     /// Job drill-down with attempt history.
     JobDetail(JobDetail),
 }
@@ -66,12 +77,18 @@ pub struct App {
     pub screen: Screen,
     pub overlay: Overlay,
     pub notice: Option<Notice>,
+    /// False after a screen load fails; restored by the next successful one.
+    /// Rendered as a persistent indicator instead of a flickering notice.
+    pub online: bool,
+    pub offline_reason: String,
 
     // Home
     pub workspaces: Vec<Workspace>,
     pub stats: Option<PlatformStats>,
     pub home_jobs: Vec<JobOverview>,
+    pub home_focus: HomeFocus,
     pub home_sel: usize,
+    pub home_job_sel: usize,
 
     // Workspace
     pub workspace: Option<Workspace>,
@@ -97,6 +114,20 @@ pub struct App {
     refresh_every: Duration,
 }
 
+/// Re-locate a selection after its list is replaced: follow the selected
+/// entry by identity, falling back to a clamped index when it disappeared.
+fn remap_selection<T, K: PartialEq>(
+    old: &[T],
+    sel: usize,
+    new: &[T],
+    key: impl Fn(&T) -> K,
+) -> usize {
+    old.get(sel)
+        .map(&key)
+        .and_then(|k| new.iter().position(|item| key(item) == k))
+        .unwrap_or_else(|| sel.min(new.len().saturating_sub(1)))
+}
+
 impl App {
     pub fn new(
         api_label: String,
@@ -109,10 +140,14 @@ impl App {
             screen: Screen::Home,
             overlay: Overlay::None,
             notice: None,
+            online: true,
+            offline_reason: String::new(),
             workspaces: Vec::new(),
             stats: None,
             home_jobs: Vec::new(),
+            home_focus: HomeFocus::Workspaces,
             home_sel: 0,
+            home_job_sel: 0,
             workspace: None,
             ws_stats: None,
             tab: Tab::Connections,
@@ -191,10 +226,14 @@ impl App {
                 stats,
                 jobs,
             } => {
+                self.online = true;
+                self.home_sel =
+                    remap_selection(&self.workspaces, self.home_sel, &workspaces, |w| w.id);
+                self.home_job_sel =
+                    remap_selection(&self.home_jobs, self.home_job_sel, &jobs, |j| j.id);
                 self.workspaces = workspaces;
                 self.stats = Some(stats);
                 self.home_jobs = jobs;
-                self.home_sel = self.home_sel.min(self.workspaces.len().saturating_sub(1));
             }
             Update::Workspace {
                 id,
@@ -204,20 +243,55 @@ impl App {
                 destinations,
                 jobs,
             } => {
+                self.online = true;
                 if self.workspace.as_ref().is_some_and(|w| w.id == id) {
+                    self.tab_sel[Tab::Connections.index()] = remap_selection(
+                        &self.connections,
+                        self.tab_sel[Tab::Connections.index()],
+                        &connections,
+                        |c| c.id,
+                    );
+                    self.tab_sel[Tab::Jobs.index()] = remap_selection(
+                        &self.ws_jobs,
+                        self.tab_sel[Tab::Jobs.index()],
+                        &jobs,
+                        |j| j.id,
+                    );
+                    self.tab_sel[Tab::Sources.index()] = remap_selection(
+                        &self.sources,
+                        self.tab_sel[Tab::Sources.index()],
+                        &sources,
+                        |a| a.name.clone(),
+                    );
+                    self.tab_sel[Tab::Destinations.index()] = remap_selection(
+                        &self.destinations,
+                        self.tab_sel[Tab::Destinations.index()],
+                        &destinations,
+                        |a| a.name.clone(),
+                    );
                     self.ws_stats = Some(stats);
                     self.connections = connections;
                     self.sources = sources;
                     self.destinations = destinations;
                     self.ws_jobs = jobs;
-                    self.clamp_tab_selection();
                 }
             }
-            Update::Connection { id, jobs, state } => {
-                if self.connection.as_ref().is_some_and(|c| c.id == id) {
+            Update::Connection {
+                connection,
+                jobs,
+                state,
+            } => {
+                self.online = true;
+                if self
+                    .connection
+                    .as_ref()
+                    .is_some_and(|c| c.id == connection.id)
+                {
+                    self.conn_sel =
+                        remap_selection(&self.conn_jobs, self.conn_sel, &jobs, |j| j.id);
+                    self.connection = Some(connection);
                     self.conn_jobs = jobs;
                     self.conn_state = state;
-                    self.conn_sel = self.conn_sel.min(self.conn_jobs.len().saturating_sub(1));
                 }
             }
             Update::JobDetail(detail) => self.overlay = Overlay::JobDetail(detail),
@@ -226,7 +300,10 @@ impl App {
                     text,
                     is_error: false,
                     at: Instant::now(),
-                })
+                });
+                // Mutations succeed against live state — pull it immediately
+                // so the effect is visible on the next frame.
+                self.refresh();
             }
             Update::Error(text) => {
                 self.notice = Some(Notice {
@@ -235,14 +312,10 @@ impl App {
                     at: Instant::now(),
                 })
             }
-        }
-    }
-
-    fn clamp_tab_selection(&mut self) {
-        for tab in Tab::ALL {
-            let len = self.tab_len(tab);
-            let sel = &mut self.tab_sel[tab.index()];
-            *sel = (*sel).min(len.saturating_sub(1));
+            Update::RefreshFailed(reason) => {
+                self.online = false;
+                self.offline_reason = reason;
+            }
         }
     }
 
@@ -277,7 +350,20 @@ impl App {
                 }
                 return true;
             }
-            Overlay::Help | Overlay::StateJson(_) | Overlay::JobDetail(_) => {
+            Overlay::StateJson { scroll, .. } => {
+                match code {
+                    KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
+                    KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),
+                    KeyCode::PageUp => *scroll = scroll.saturating_sub(10),
+                    KeyCode::PageDown => *scroll = scroll.saturating_add(10),
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('v') => {
+                        self.overlay = Overlay::None
+                    }
+                    _ => {}
+                }
+                return true;
+            }
+            Overlay::Help | Overlay::JobDetail(_) => {
                 if matches!(
                     code,
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char('?')
@@ -328,24 +414,47 @@ impl App {
 
     fn on_key_home(&mut self, code: KeyCode) {
         match code {
-            KeyCode::Up | KeyCode::Char('k') => self.home_sel = self.home_sel.saturating_sub(1),
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.home_sel = (self.home_sel + 1).min(self.workspaces.len().saturating_sub(1))
+            KeyCode::Tab | KeyCode::BackTab | KeyCode::Left | KeyCode::Right => {
+                self.home_focus = match self.home_focus {
+                    HomeFocus::Workspaces => HomeFocus::Activity,
+                    HomeFocus::Activity => HomeFocus::Workspaces,
+                };
             }
-            KeyCode::Enter => {
-                if let Some(ws) = self.workspaces.get(self.home_sel).cloned() {
-                    let id = ws.id;
-                    self.workspace = Some(ws);
-                    self.screen = Screen::Workspace;
-                    self.tab = Tab::Connections;
-                    self.connections.clear();
-                    self.sources.clear();
-                    self.destinations.clear();
-                    self.ws_jobs.clear();
-                    self.ws_stats = None;
-                    self.send(Command::Workspace(id));
+            KeyCode::Up | KeyCode::Char('k') => match self.home_focus {
+                HomeFocus::Workspaces => self.home_sel = self.home_sel.saturating_sub(1),
+                HomeFocus::Activity => self.home_job_sel = self.home_job_sel.saturating_sub(1),
+            },
+            KeyCode::Down | KeyCode::Char('j') => match self.home_focus {
+                HomeFocus::Workspaces => {
+                    self.home_sel = (self.home_sel + 1).min(self.workspaces.len().saturating_sub(1))
                 }
-            }
+                HomeFocus::Activity => {
+                    self.home_job_sel =
+                        (self.home_job_sel + 1).min(self.home_jobs.len().saturating_sub(1))
+                }
+            },
+            KeyCode::Enter => match self.home_focus {
+                HomeFocus::Workspaces => {
+                    if let Some(ws) = self.workspaces.get(self.home_sel).cloned() {
+                        let id = ws.id;
+                        self.workspace = Some(ws);
+                        self.screen = Screen::Workspace;
+                        self.tab = Tab::Connections;
+                        self.connections.clear();
+                        self.sources.clear();
+                        self.destinations.clear();
+                        self.ws_jobs.clear();
+                        self.ws_stats = None;
+                        self.send(Command::Workspace(id));
+                    }
+                }
+                HomeFocus::Activity => {
+                    if let Some(job) = self.home_jobs.get(self.home_job_sel) {
+                        let id = job.id;
+                        self.send(Command::JobDetail(id));
+                    }
+                }
+            },
             KeyCode::Char('n') => self.overlay = Overlay::Input(String::new()),
             _ => {}
         }
@@ -392,6 +501,14 @@ impl App {
                     }
                 }
             }
+            KeyCode::Char('p') => {
+                if self.tab == Tab::Connections {
+                    if let Some(conn) = self.connections.get(sel) {
+                        let (id, status) = (conn.id, toggled_status(&conn.status));
+                        self.send(Command::SetConnectionStatus { id, status });
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -424,13 +541,17 @@ impl App {
                     self.send(Command::TriggerSync(id));
                 }
             }
+            KeyCode::Char('p') => {
+                if let Some(c) = &self.connection {
+                    let (id, status) = (c.id, toggled_status(&c.status));
+                    self.send(Command::SetConnectionStatus { id, status });
+                }
+            }
             KeyCode::Char('c') => {
-                if let (Some(job), Some(conn)) =
-                    (self.conn_jobs.get(self.conn_sel), &self.connection)
-                {
+                if let Some(job) = self.conn_jobs.get(self.conn_sel) {
                     if matches!(job.status.as_str(), "pending" | "running") {
-                        let (job, connection) = (job.id, conn.id);
-                        self.send(Command::CancelJob { job, connection });
+                        let job = job.id;
+                        self.send(Command::CancelJob(job));
                     } else {
                         self.notice = Some(Notice {
                             text: format!("job #{} is already {}", job.id, job.status),
@@ -441,14 +562,23 @@ impl App {
                 }
             }
             KeyCode::Char('v') => {
-                let pretty = match &self.conn_state {
+                let text = match &self.conn_state {
                     Some(v) => serde_json::to_string_pretty(v)
                         .unwrap_or_else(|_| "<unprintable>".to_string()),
                     None => "No committed state yet — run a sync first.".to_string(),
                 };
-                self.overlay = Overlay::StateJson(pretty);
+                self.overlay = Overlay::StateJson { text, scroll: 0 };
             }
             _ => {}
         }
+    }
+}
+
+/// active ⇄ inactive; deprecated connections resume to active too.
+fn toggled_status(current: &str) -> &'static str {
+    if current == "active" {
+        "inactive"
+    } else {
+        "active"
     }
 }

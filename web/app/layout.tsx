@@ -20,7 +20,7 @@ export default function RootLayout({
             Gauss-<span>DataFlow</span>
           </Link>
           <Link href="/" className="navlink">
-            Workspaces
+            Mission control
           </Link>
           <Link href="/roadmap" className="navlink">
             Roadmap

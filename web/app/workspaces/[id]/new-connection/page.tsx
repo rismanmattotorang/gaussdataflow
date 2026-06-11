@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, ConfiguredStream, DiscoveredStream } from "@/lib/api";
-import { ErrorNote, usePoll } from "@/components/ui";
+import { Breadcrumbs, ErrorNote, toast, usePoll } from "@/components/ui";
 
 interface StreamChoice {
   stream: DiscoveredStream;
@@ -18,6 +18,11 @@ export default function NewConnectionPage() {
   const { id: workspaceId } = useParams<{ id: string }>();
   const router = useRouter();
 
+  const { data: workspace } = usePoll(
+    () => api.workspaces.get(workspaceId),
+    null,
+    [workspaceId],
+  );
   const sources = usePoll(() => api.actors("sources").list(workspaceId), null, [
     workspaceId,
   ]);
@@ -92,6 +97,9 @@ export default function NewConnectionPage() {
         catalog: { streams: configured },
         schedule,
       });
+      toast(
+        `Connection “${connection.name}” created — trigger your first sync`,
+      );
       router.push(`/connections/${connection.connectionId}`);
     } catch (e) {
       setError((e as Error).message);
@@ -102,8 +110,20 @@ export default function NewConnectionPage() {
   const ready =
     sourceId && destinationId && streams?.some((c) => c.selected) && !busy;
 
+  const allSelected = streams?.every((c) => c.selected) ?? false;
+
   return (
     <main>
+      <Breadcrumbs
+        items={[
+          { label: "Mission control", href: "/" },
+          {
+            label: workspace?.name ?? "Workspace",
+            href: `/workspaces/${workspaceId}`,
+          },
+          { label: "New connection" },
+        ]}
+      />
       <h1>New connection</h1>
       <p className="lede">
         Wire a source to a destination. Discovery asks the source connector
@@ -162,11 +182,33 @@ export default function NewConnectionPage() {
 
       {streams && (
         <>
-          <h2>Streams</h2>
+          <div className="form-row" style={{ justifyContent: "space-between" }}>
+            <h2 style={{ margin: 0 }}>
+              Streams ({streams.filter((c) => c.selected).length}/
+              {streams.length} selected)
+            </h2>
+            <button className="ghost" onClick={discover} disabled={busy}>
+              {busy ? "Discovering…" : "Re-discover"}
+            </button>
+          </div>
           <table>
             <thead>
               <tr>
-                <th></th>
+                <th>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    aria-label="Select all streams"
+                    onChange={(e) =>
+                      setStreams(
+                        streams.map((c) => ({
+                          ...c,
+                          selected: e.target.checked,
+                        })),
+                      )
+                    }
+                  />
+                </th>
                 <th>Stream</th>
                 <th>Sync mode</th>
               </tr>
@@ -246,6 +288,12 @@ export default function NewConnectionPage() {
               />
             )}
           </div>
+          {scheduleKind === "cron" && (
+            <p className="hint">
+              Standard 5-field cron, evaluated in UTC — e.g.{" "}
+              <code>0 * * * *</code> is hourly on the hour.
+            </p>
+          )}
 
           <div className="form-row">
             <button onClick={create} disabled={!ready}>

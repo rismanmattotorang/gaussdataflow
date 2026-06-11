@@ -15,7 +15,8 @@ pub enum Command {
     Connection(Uuid),
     JobDetail(i64),
     TriggerSync(Uuid),
-    CancelJob { job: i64, connection: Uuid },
+    CancelJob(i64),
+    SetConnectionStatus { id: Uuid, status: &'static str },
     CreateWorkspace(String),
 }
 
@@ -34,13 +35,18 @@ pub enum Update {
         jobs: Vec<JobOverview>,
     },
     Connection {
-        id: Uuid,
+        connection: Connection,
         jobs: Vec<Job>,
         state: Option<Value>,
     },
     JobDetail(JobDetail),
+    /// A successful mutation; the app re-fetches its current screen.
     Notice(String),
+    /// A failed mutation: surfaced in the footer.
     Error(String),
+    /// A failed screen load: the API is unreachable or unhealthy. Shown as a
+    /// persistent offline indicator rather than a transient notice.
+    RefreshFailed(String),
 }
 
 pub async fn run(
@@ -49,18 +55,14 @@ pub async fn run(
     updates: std::sync::mpsc::Sender<Update>,
 ) {
     while let Some(cmd) = commands.recv().await {
-        let update = handle(&api, cmd, &updates).await;
+        let update = handle(&api, cmd).await;
         if updates.send(update).is_err() {
             return; // UI is gone
         }
     }
 }
 
-async fn handle(
-    api: &ApiClient,
-    cmd: Command,
-    updates: &std::sync::mpsc::Sender<Update>,
-) -> Update {
+async fn handle(api: &ApiClient, cmd: Command) -> Update {
     match cmd {
         Command::Home => {
             match tokio::try_join!(api.workspaces(), api.stats(None), api.recent_jobs(None, 30)) {
@@ -69,7 +71,7 @@ async fn handle(
                     stats,
                     jobs,
                 },
-                Err(e) => Update::Error(e.to_string()),
+                Err(e) => Update::RefreshFailed(e.to_string()),
             }
         }
         Command::Workspace(id) => {
@@ -88,13 +90,21 @@ async fn handle(
                     destinations,
                     jobs,
                 },
-                Err(e) => Update::Error(e.to_string()),
+                Err(e) => Update::RefreshFailed(e.to_string()),
             }
         }
         Command::Connection(id) => {
-            match tokio::try_join!(api.connection_jobs(id), api.connection_state(id)) {
-                Ok((jobs, state)) => Update::Connection { id, jobs, state },
-                Err(e) => Update::Error(e.to_string()),
+            match tokio::try_join!(
+                api.connection(id),
+                api.connection_jobs(id),
+                api.connection_state(id)
+            ) {
+                Ok((connection, jobs, state)) => Update::Connection {
+                    connection,
+                    jobs,
+                    state,
+                },
+                Err(e) => Update::RefreshFailed(e.to_string()),
             }
         }
         Command::JobDetail(id) => match api.job_detail(id).await {
@@ -102,41 +112,25 @@ async fn handle(
             Err(e) => Update::Error(e.to_string()),
         },
         Command::TriggerSync(connection) => match api.trigger_sync(connection).await {
-            Ok(job) => {
-                refresh_connection(api, connection, updates).await;
-                Update::Notice(format!("sync queued as job #{}", job.id))
-            }
+            Ok(job) => Update::Notice(format!("sync queued as job #{}", job.id)),
             Err(e) => Update::Error(format!("sync failed: {e}")),
         },
-        Command::CancelJob { job, connection } => match api.cancel_job(job).await {
-            Ok(_) => {
-                refresh_connection(api, connection, updates).await;
-                Update::Notice(format!("cancellation requested for job #{job}"))
-            }
+        Command::CancelJob(job) => match api.cancel_job(job).await {
+            Ok(_) => Update::Notice(format!("cancellation requested for job #{job}")),
             Err(e) => Update::Error(format!("cancel failed: {e}")),
         },
-        Command::CreateWorkspace(name) => match api.create_workspace(&name).await {
-            Ok(ws) => {
-                if let Ok((workspaces, stats, jobs)) =
-                    tokio::try_join!(api.workspaces(), api.stats(None), api.recent_jobs(None, 30))
-                {
-                    let _ = updates.send(Update::Home {
-                        workspaces,
-                        stats,
-                        jobs,
-                    });
-                }
-                Update::Notice(format!("workspace \"{}\" created", ws.name))
+        Command::SetConnectionStatus { id, status } => {
+            match api.set_connection_status(id, status).await {
+                Ok(conn) => Update::Notice(match status {
+                    "active" => format!("\"{}\" resumed — schedule live again", conn.name),
+                    _ => format!("\"{}\" paused — no syncs until resumed", conn.name),
+                }),
+                Err(e) => Update::Error(format!("status change failed: {e}")),
             }
+        }
+        Command::CreateWorkspace(name) => match api.create_workspace(&name).await {
+            Ok(ws) => Update::Notice(format!("workspace \"{}\" created", ws.name)),
             Err(e) => Update::Error(format!("create failed: {e}")),
         },
-    }
-}
-
-/// Push fresh connection data after a mutation so the action's effect is
-/// visible on the very next frame.
-async fn refresh_connection(api: &ApiClient, id: Uuid, updates: &std::sync::mpsc::Sender<Update>) {
-    if let Ok((jobs, state)) = tokio::try_join!(api.connection_jobs(id), api.connection_state(id)) {
-        let _ = updates.send(Update::Connection { id, jobs, state });
     }
 }

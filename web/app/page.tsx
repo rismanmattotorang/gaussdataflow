@@ -80,7 +80,13 @@ export default function Dashboard() {
           label="Last 24 h"
           value={s ? `${fmtNum(s.jobsSucceeded24h)} ✓ · ${fmtNum(s.jobsFailed24h)} ✗` : "…"}
           detail={s ? `${fmtNum(s.recordsSynced24h)} records moved` : undefined}
-          tone={s && s.jobsFailed24h > 0 ? "err" : "ok"}
+          tone={
+            s && s.jobsFailed24h > 0
+              ? "err"
+              : s && s.jobsSucceeded24h > 0
+                ? "ok"
+                : undefined
+          }
         />
         <StatCard
           label="Last success"
