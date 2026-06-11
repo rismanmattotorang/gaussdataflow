@@ -1,10 +1,10 @@
 "use client";
 
-// Connection detail: sync trigger, live job monitoring with attempt
-// drill-down, committed state.
+// Connection detail: lifecycle controls (sync, pause/resume, delete), live
+// job monitoring with attempt drill-down, committed state.
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { api, scheduleLabel, type Job } from "@/lib/api";
 import {
   Breadcrumbs,
@@ -21,24 +21,39 @@ function JobRow({ job, onCancel }: { job: Job; onCancel: () => void }) {
   const [detail, setDetail] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
 
-  async function toggle() {
-    if (!open) {
-      try {
-        setDetail(await api.jobs.get(job.id));
-      } catch {
-        setDetail(null);
-      }
-    }
+  // Keep the expanded attempt view live while the job is still moving.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api.jobs.get(job.id).then(
+      (d) => !cancelled && setDetail(d),
+      () => !cancelled && setDetail(null),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, job.id, job.status, job.completedAt]);
+
+  function toggle() {
     setOpen(!open);
   }
 
-  const records = detail?.attempts?.length
-    ? detail.attempts[detail.attempts.length - 1].recordsSynced
-    : undefined;
-
   return (
     <>
-      <tr onClick={toggle} style={{ cursor: "pointer" }}>
+      <tr
+        onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={open}
+        aria-label={`Job ${job.id}, ${job.status} — toggle attempt history`}
+        style={{ cursor: "pointer" }}
+      >
         <td className="meta">
           {open ? "▾" : "▸"} #{job.id}
         </td>
@@ -91,11 +106,6 @@ function JobRow({ job, onCancel }: { job: Job; onCancel: () => void }) {
                 </tbody>
               </table>
             )}
-            {records !== undefined && (
-              <p className="hint">
-                Latest attempt moved {fmtNum(records)} records.
-              </p>
-            )}
           </td>
         </tr>
       )}
@@ -105,11 +115,21 @@ function JobRow({ job, onCancel }: { job: Job; onCancel: () => void }) {
 
 export default function ConnectionPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [mutating, setMutating] = useState(false);
 
-  const { data: connection, error } = usePoll(
-    () => api.connections.get(id),
+  const {
+    data: connection,
+    error,
+    refresh: refreshConnection,
+  } = usePoll(() => api.connections.get(id), null, [id]);
+  const { data: workspace } = usePoll(
+    () =>
+      connection
+        ? api.workspaces.get(connection.workspaceId)
+        : Promise.resolve(null),
     null,
-    [id],
+    [connection?.workspaceId],
   );
   // Jobs poll every 3s — a sync in flight updates live.
   const jobs = usePoll(() => api.connections.jobs(id), 3000, [id]);
@@ -122,6 +142,47 @@ export default function ConnectionPage() {
       jobs.refresh();
     } catch (e) {
       toast((e as Error).message, "err");
+    }
+  }
+
+  const paused = connection?.status === "inactive";
+
+  async function togglePaused() {
+    if (!connection) return;
+    setMutating(true);
+    try {
+      await api.connections.update(id, {
+        status: paused ? "active" : "inactive",
+      });
+      toast(
+        paused
+          ? "Connection resumed — schedules and syncs are live again"
+          : "Connection paused — no scheduled or manual syncs until resumed",
+      );
+      refreshConnection();
+    } catch (e) {
+      toast((e as Error).message, "err");
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function remove() {
+    if (!connection) return;
+    if (
+      !window.confirm(
+        `Delete connection “${connection.name}”? Its job history and committed state will be removed. This cannot be undone.`,
+      )
+    )
+      return;
+    setMutating(true);
+    try {
+      await api.connections.remove(id);
+      toast(`Connection “${connection.name}” deleted`);
+      router.push(`/workspaces/${connection.workspaceId}`);
+    } catch (e) {
+      toast((e as Error).message, "err");
+      setMutating(false);
     }
   }
 
@@ -145,8 +206,10 @@ export default function ConnectionPage() {
         items={[
           { label: "Mission control", href: "/" },
           {
-            label: "Workspace",
-            href: connection ? `/workspaces/${connection.workspaceId}` : undefined,
+            label: workspace?.name ?? "Workspace",
+            href: connection
+              ? `/workspaces/${connection.workspaceId}`
+              : undefined,
           },
           { label: connection?.name ?? "Connection" },
         ]}
@@ -160,6 +223,7 @@ export default function ConnectionPage() {
               {connection.catalog.streams.length} stream
               {connection.catalog.streams.length === 1 ? "" : "s"} ·{" "}
               {scheduleLabel(connection.schedule)}
+              {paused && " · paused: schedule suspended"}
             </span>
           </>
         )}
@@ -172,6 +236,20 @@ export default function ConnectionPage() {
           onClick={syncNow}
         >
           Sync now
+        </button>
+        <button
+          className="ghost"
+          disabled={!connection || mutating}
+          onClick={togglePaused}
+        >
+          {paused ? "Resume" : "Pause"}
+        </button>
+        <button
+          className="danger"
+          disabled={!connection || mutating}
+          onClick={remove}
+        >
+          Delete
         </button>
         {hasActive && (
           <span className="meta">a job is already queued/running</span>

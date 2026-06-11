@@ -841,7 +841,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-cdk"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "clap",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -867,7 +867,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-connector-runtime"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gauss-protocol",
  "serde_json",
@@ -879,7 +879,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-declarative"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -897,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-mcp"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -916,7 +916,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-mock-connector"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "gauss-cdk",
@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-orchestrator"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "axum",
  "chrono",
@@ -952,7 +952,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-protocol"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -960,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-secrets"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -973,7 +973,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-server"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1001,7 +1001,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-store"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1016,7 +1016,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-sync"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "gauss-connector-runtime",
  "gauss-protocol",
@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "gauss-tui"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",

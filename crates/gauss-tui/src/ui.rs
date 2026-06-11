@@ -10,7 +10,7 @@ use ratatui::widgets::{
 };
 use ratatui::Frame;
 
-use crate::app::{App, Overlay, Screen, Tab};
+use crate::app::{App, HomeFocus, Overlay, Screen, Tab};
 
 const ACCENT: Color = Color::Rgb(122, 162, 255);
 const MUTED: Color = Color::Rgb(147, 160, 196);
@@ -56,12 +56,20 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
             crumb_style(app.screen == Screen::Connection),
         ));
     }
-    let right = format!("{} {} ", if app.loading { "⟳" } else { " " }, app.api_label);
+    let right = if app.online {
+        Line::from(vec![
+            Span::styled(if app.loading { "⟳ " } else { "" }, Style::new().fg(MUTED)),
+            Span::styled("● ", Style::new().fg(OK)),
+            Span::styled(format!("{} ", app.api_label), Style::new().fg(MUTED)),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("● offline — retrying ", Style::new().fg(ERR).bold()),
+            Span::styled(format!("{} ", app.api_label), Style::new().fg(MUTED)),
+        ])
+    };
     f.render_widget(Line::from(crumbs), area);
-    f.render_widget(
-        Paragraph::new(Span::styled(right, Style::new().fg(MUTED))).alignment(Alignment::Right),
-        area,
-    );
+    f.render_widget(Paragraph::new(right).alignment(Alignment::Right), area);
 }
 
 fn crumb_style(active: bool) -> Style {
@@ -87,6 +95,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     }
     let hints: &[(&str, &str)] = match app.screen {
         Screen::Home => &[
+            ("⇥", "switch pane"),
             ("↑↓", "select"),
             ("⏎", "open"),
             ("n", "new workspace"),
@@ -98,14 +107,16 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ("⇥/1-4", "tabs"),
             ("↑↓", "select"),
             ("⏎", "open"),
-            ("s", "sync now"),
+            ("s", "sync"),
+            ("p", "pause/resume"),
             ("esc", "back"),
             ("?", "help"),
         ],
         Screen::Connection => &[
             ("↑↓", "select"),
             ("⏎", "attempts"),
-            ("s", "sync now"),
+            ("s", "sync"),
+            ("p", "pause/resume"),
             ("c", "cancel job"),
             ("v", "state"),
             ("esc", "back"),
@@ -144,11 +155,11 @@ fn draw_stats(f: &mut Frame, app: &App, area: Rect, fleet: bool) {
             "Topology".into(),
             Line::from(vec![
                 Span::styled(s.connections.to_string(), Style::new().bold()),
-                Span::styled(" pipelines  ", Style::new().fg(MUTED)),
+                Span::styled(" pipelines · ", Style::new().fg(MUTED)),
                 Span::styled(s.sources.to_string(), Style::new().bold()),
-                Span::styled("src→", Style::new().fg(MUTED)),
+                Span::styled(" src → ", Style::new().fg(MUTED)),
                 Span::styled(s.destinations.to_string(), Style::new().bold()),
-                Span::styled("dst", Style::new().fg(MUTED)),
+                Span::styled(" dst", Style::new().fg(MUTED)),
             ]),
         ),
         (
@@ -207,6 +218,7 @@ fn draw_home(f: &mut Frame, app: &App, area: Rect) {
 
     let [left, right] =
         Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)]).areas(body);
+    let ws_focused = app.home_focus == HomeFocus::Workspaces;
 
     let items: Vec<ListItem> = if app.workspaces.is_empty() {
         vec![ListItem::new(Span::styled(
@@ -230,9 +242,16 @@ fn draw_home(f: &mut Frame, app: &App, area: Rect) {
     let mut state = ListState::default().with_selected(Some(app.home_sel));
     f.render_stateful_widget(
         List::new(items)
-            .block(panel(&format!("Workspaces ({})", app.workspaces.len())))
-            .highlight_style(highlight())
-            .highlight_symbol("▌ "),
+            .block(focusable_panel(
+                &format!("Workspaces ({})", app.workspaces.len()),
+                ws_focused,
+            ))
+            .highlight_style(if ws_focused {
+                highlight()
+            } else {
+                Style::new().fg(ACCENT)
+            })
+            .highlight_symbol(if ws_focused { "▌ " } else { "│ " }),
         left,
         &mut state,
     );
@@ -250,7 +269,9 @@ fn draw_home(f: &mut Frame, app: &App, area: Rect) {
             ])
         })
         .collect();
-    f.render_widget(
+    let mut job_state =
+        TableState::default().with_selected((!ws_focused).then_some(app.home_job_sel));
+    f.render_stateful_widget(
         Table::new(
             rows,
             [
@@ -268,8 +289,13 @@ fn draw_home(f: &mut Frame, app: &App, area: Rect) {
             "RECORDS",
             "WHEN",
         ]))
-        .block(panel("Recent activity — all workspaces")),
+        .row_highlight_style(highlight())
+        .block(focusable_panel(
+            "Recent activity — all workspaces · ⏎ attempts",
+            !ws_focused,
+        )),
         right,
+        &mut job_state,
     );
 }
 
@@ -342,7 +368,7 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
                     "NAME", "STATUS", "SCHEDULE", "LAST JOB", "WHEN",
                 ]))
                 .row_highlight_style(highlight())
-                .block(panel("Connections — ⏎ open · s sync now")),
+                .block(panel("Connections — ⏎ open · s sync · p pause/resume")),
                 body,
                 &mut state,
             );
@@ -465,7 +491,9 @@ fn draw_connection(f: &mut Frame, app: &App, area: Rect) {
         )
         .header(table_header(["JOB", "TYPE", "STATUS", "DURATION", "WHEN"]))
         .row_highlight_style(highlight())
-        .block(panel("Job history — s sync · c cancel · ⏎ attempts")),
+        .block(panel(
+            "Job history — s sync · p pause/resume · c cancel · ⏎ attempts",
+        )),
         body,
         &mut state,
     );
@@ -477,16 +505,18 @@ fn draw_overlay(f: &mut Frame, app: &App) {
     match &app.overlay {
         Overlay::None => {}
         Overlay::Help => {
-            let area = centered(58, 16, f.area());
+            let area = centered(58, 18, f.area());
             f.render_widget(Clear, area);
             let lines = vec![
                 help_line("↑↓ / jk", "move selection"),
                 help_line("⏎", "open / drill down"),
                 help_line("esc / ⌫", "back"),
-                help_line("⇥ / 1-4", "switch workspace tab"),
+                help_line("⇥", "switch pane (fleet) / tab (workspace)"),
+                help_line("1-4", "jump to workspace tab"),
                 help_line("s", "trigger sync for connection"),
+                help_line("p", "pause / resume connection"),
                 help_line("c", "cancel selected job"),
-                help_line("v", "inspect committed state"),
+                help_line("v", "inspect committed state (↑↓ scrolls)"),
                 help_line("n", "new workspace (on fleet screen)"),
                 help_line("r", "refresh now"),
                 help_line("q / ctrl-c", "quit"),
@@ -515,12 +545,18 @@ fn draw_overlay(f: &mut Frame, app: &App) {
                 area,
             );
         }
-        Overlay::StateJson(json) => {
+        Overlay::StateJson { text, scroll } => {
             let area = centered(72, 20, f.area());
             f.render_widget(Clear, area);
+            // Clamp so the last page stays on screen instead of scrolling
+            // into emptiness.
+            let lines = text.lines().count() as u16;
+            let visible = area.height.saturating_sub(2);
+            let offset = (*scroll).min(lines.saturating_sub(visible));
             f.render_widget(
-                Paragraph::new(json.as_str())
-                    .block(panel("Committed state — esc to close"))
+                Paragraph::new(text.as_str())
+                    .scroll((offset, 0))
+                    .block(panel("Committed state — ↑↓ scroll · esc close"))
                     .wrap(Wrap { trim: false }),
                 area,
             );
@@ -576,6 +612,21 @@ fn panel(title: &str) -> Block<'static> {
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(Color::Rgb(35, 44, 77)))
         .title(Span::styled(format!(" {title} "), Style::new().fg(MUTED)))
+}
+
+/// A panel whose border and title light up when its pane owns the keyboard.
+fn focusable_panel(title: &str, focused: bool) -> Block<'static> {
+    if focused {
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(ACCENT))
+            .title(Span::styled(
+                format!(" {title} "),
+                Style::new().fg(ACCENT).bold(),
+            ))
+    } else {
+        panel(title)
+    }
 }
 
 fn table_header<const N: usize>(titles: [&'static str; N]) -> Row<'static> {

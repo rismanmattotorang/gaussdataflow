@@ -101,12 +101,27 @@ export interface Attempt {
   endedAt?: string;
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { "content-type": "application/json", ...init?.headers },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { "content-type": "application/json", ...init?.headers },
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    // Distinguish "the API is down/unreachable" from HTTP-level failures so
+    // every surface shows the same actionable message.
+    if ((e as Error).name === "TimeoutError") {
+      throw new Error(
+        `API timed out after ${REQUEST_TIMEOUT_MS / 1000}s (${API_BASE})`,
+      );
+    }
+    throw new Error(`Cannot reach the Gauss-DataFlow API at ${API_BASE}`);
+  }
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => null);
   if (!res.ok) {

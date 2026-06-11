@@ -673,3 +673,41 @@ async fn fleet_stats_and_recent_jobs() {
     .await;
     assert_eq!(scoped["connections"], 0);
 }
+
+#[tokio::test]
+async fn cors_is_pinned_when_origins_are_configured() {
+    let Some(state) = test_state().await else {
+        return;
+    };
+    let app =
+        gauss_server::app(state.cors_origins(vec!["http://console.example".parse().unwrap()]));
+
+    // The configured console origin is allowed…
+    let request = Request::builder()
+        .method("GET")
+        .uri("/health")
+        .header("origin", "http://console.example")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .unwrap(),
+        "http://console.example"
+    );
+
+    // …any other origin is not.
+    let request = Request::builder()
+        .method("GET")
+        .uri("/health")
+        .header("origin", "http://elsewhere.example")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert!(response
+        .headers()
+        .get("access-control-allow-origin")
+        .is_none());
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function StatusBadge({ status }: { status: string }) {
   const tone =
@@ -24,7 +24,12 @@ export function ErrorNote({ error }: { error: string | null }) {
   return <p className="error-note">{error}</p>;
 }
 
-/** Fetch with optional polling; re-runs when `deps` change. */
+/** Fetch with optional polling; re-runs when `deps` change.
+ *
+ * Correctness guarantees a naive interval lacks: errors clear on the next
+ * success (no stale banners), out-of-order responses are dropped, polling
+ * pauses while the tab is hidden and resumes (with an immediate fetch) when
+ * it becomes visible again. */
 export function usePoll<T>(
   fn: () => Promise<T>,
   intervalMs: number | null,
@@ -32,17 +37,43 @@ export function usePoll<T>(
 ) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const seq = useRef(0);
 
   const refresh = useCallback(() => {
-    fn().then(setData, (e: Error) => setError(e.message));
+    const ticket = ++seq.current;
+    fn().then(
+      (d) => {
+        if (ticket === seq.current) {
+          setData(d);
+          setError(null);
+        }
+      },
+      (e: Error) => {
+        if (ticket === seq.current) setError(e.message);
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {
     refresh();
-    if (intervalMs === null) return;
-    const timer = setInterval(refresh, intervalMs);
-    return () => clearInterval(timer);
+    if (intervalMs === null) {
+      return () => {
+        seq.current++; // invalidate in-flight responses on unmount/dep change
+      };
+    }
+    const timer = setInterval(() => {
+      if (!document.hidden) refresh();
+    }, intervalMs);
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      seq.current++;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refresh, intervalMs]);
 
   return { data, error, refresh };
@@ -103,9 +134,8 @@ export function ToastHost() {
       toastListener = null;
     };
   }, []);
-  if (toasts.length === 0) return null;
   return (
-    <div className="toast-stack">
+    <div className="toast-stack" role="status" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className={`toast ${t.tone}`}>
           {t.text}

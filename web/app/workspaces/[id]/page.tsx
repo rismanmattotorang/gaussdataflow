@@ -117,7 +117,13 @@ export default function WorkspacePage() {
             s ? `${fmtNum(s.jobsSucceeded24h)} ✓ · ${fmtNum(s.jobsFailed24h)} ✗` : "…"
           }
           detail={s ? `${fmtNum(s.recordsSynced24h)} records` : undefined}
-          tone={s && s.jobsFailed24h > 0 ? "err" : "ok"}
+          tone={
+            s && s.jobsFailed24h > 0
+              ? "err"
+              : s && s.jobsSucceeded24h > 0
+                ? "ok"
+                : undefined
+          }
         />
         <StatCard
           label="Last success"
