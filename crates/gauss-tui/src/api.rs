@@ -132,7 +132,14 @@ impl ApiClient {
         Self {
             base: base.trim_end_matches('/').to_string(),
             token,
-            http: reqwest::Client::new(),
+            // Bounded timeouts: a hung or unreachable API surfaces as the
+            // offline indicator instead of silently stalling the fetch task
+            // (commands are handled sequentially behind it).
+            http: reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(5))
+                .timeout(std::time::Duration::from_secs(20))
+                .build()
+                .expect("reqwest client"),
         }
     }
 

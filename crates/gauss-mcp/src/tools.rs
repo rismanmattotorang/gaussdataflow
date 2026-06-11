@@ -524,7 +524,9 @@ impl Gateway {
 
         let staging = tempfile::tempdir().map_err(err)?;
         let config = staging.path().join("config.json");
-        std::fs::write(&config, serde_json::to_vec(&hydrated).map_err(err)?).map_err(err)?;
+        tokio::fs::write(&config, serde_json::to_vec(&hydrated).map_err(err)?)
+            .await
+            .map_err(err)?;
 
         let launcher =
             resolve_launcher(&definition.docker_repository, &definition.docker_image_tag);

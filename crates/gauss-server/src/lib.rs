@@ -116,9 +116,24 @@ pub fn app(state: AppState) -> Router {
             auth::layer,
         ))
         .layer(TraceLayer::new_for_http())
-        // The web app is served from its own origin (Next.js dev server or a
-        // static host); the API is token-less and self-hosted, so permissive
-        // CORS is the Phase-4 posture. AuthN/Z tightens this in Phase 6.
-        .layer(CorsLayer::permissive())
+        .layer(cors_layer(&state))
         .with_state(state)
+}
+
+/// The web console runs on its own origin, so CORS is permissive by default
+/// for self-hosted setups; production deployments pin the console origin(s)
+/// with `--cors-origin` and the layer then only allows the headers the
+/// console actually sends.
+fn cors_layer(state: &AppState) -> CorsLayer {
+    if state.cors_origins.is_empty() {
+        CorsLayer::permissive()
+    } else {
+        CorsLayer::new()
+            .allow_origin(state.cors_origins.clone())
+            .allow_methods(tower_http::cors::Any)
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+            ])
+    }
 }

@@ -4,13 +4,13 @@
 
 **The data movement platform for the agentic era.**
 
-Built in the open by **Gaussian Technologies**.
+**v1.0.0** — built in the open by **Gaussian Technologies**.
 
 Move data from anywhere to anywhere — orchestrated by a Rust core that treats
-reliability as physics, operated by humans through a modern web console, and by
-AI agents through a native MCP gateway.
+reliability as physics, operated by humans through a web console and a
+terminal console, and by AI agents through a native MCP gateway.
 
-[Quickstart](#quickstart) · [Architecture](#architecture) · [MCP Gateway](#-built-for-agents-mcp-gateway) · [Architecture](docs/ARCHITECTURE.md) · MIT License
+[Quickstart](#quickstart) · [Architecture](#architecture) · [MCP Gateway](#-built-for-agents-mcp-gateway) · [Production](#-running-it-in-production) · [Roadmap](docs/ROADMAP.md) · MIT License
 
 </div>
 
@@ -143,6 +143,34 @@ and initialization negotiates protocol revisions `2024-11-05` through
 role-scoped virtual tool surfaces, an AI connector builder targeting the
 declarative engine — lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## 🚀 Running it in production
+
+V1.0 is a self-hostable release; the production posture is three flags and a
+proxy:
+
+1. **Authentication on.** `--require-auth`, then mint per-consumer tokens
+   (`--create-token ops:admin`, `ci:editor`, `dashboards:viewer`). Raw token
+   values are shown once; only SHA-256 hashes are stored.
+2. **CORS pinned.** `--cors-origin https://console.your.domain` (repeatable /
+   comma-separated, env `GAUSS_CORS_ORIGIN`) restricts browsers to your
+   console's origin and the headers it actually sends. The permissive
+   default exists for localhost self-hosting only.
+3. **TLS at the edge.** `gauss-server` binds plain HTTP (`GAUSS_BIND`);
+   terminate TLS at your reverse proxy or ingress.
+4. **Secrets in Vault** when you have it: `--secrets-backend vault` with
+   `VAULT_ADDR`/`VAULT_TOKEN`. Postgres-sealed secrets remain the default.
+5. **Scale workers, not coordinators.** Run the API as `gauss-server` and as
+   many `gauss-server --worker` processes as throughput needs — the Postgres
+   queue (`FOR UPDATE SKIP LOCKED`) coordinates them; heartbeats reap
+   crashed workers automatically. Postgres is the only stateful dependency:
+   back it up and you've backed up the platform.
+6. **Wire it into your ops.** Job webhooks (`notifications.webhookUrl`),
+   the audit log (`GET /api/v1/audit`), fleet health (`GET /api/v1/stats`),
+   and one-command environment bootstrap (`--import-file deployment.json`).
+
+The same bearer token drives every surface: the console, `gauss-tui --token`,
+and `curl`.
+
 ## 🔐 Locked down by default-deny
 
 Flip on `--require-auth` and every API request needs a bearer token; tokens
@@ -255,7 +283,7 @@ async fn main() -> std::process::ExitCode {
 
 ## Reliability, tested
 
-`cargo test --workspace` runs 50+ tests, including end-to-end replication
+`cargo test --workspace` runs 70 tests, including end-to-end replication
 through real OS processes: full syncs, incremental resume from committed
 cursors, mid-flight cancellation, crash-retry with backoff, duplicate-job
 rejection, schedule evaluation, secret redaction/rotation, and the complete
@@ -276,17 +304,24 @@ checkpoints:
 cargo test -p gauss-mock-connector --test bench --release -- --ignored --nocapture
 ```
 
-## Status
+## Status: V1.0
 
-All six phases of the founding roadmap have shipped — wire protocol &
-connector runtime, persistence & sealed secrets, Postgres-native
-orchestration, the web console & MCP gateway, the Rust CDK & declarative
-engine, and enterprise hardening (RBAC, audit, OAuth2, Vault, webhooks,
-import tooling) — plus Phase 7: the `gauss-tui` terminal console, the
-mission-control dashboard, fleet observability APIs, and the
-annotation-rich MCP gateway. Architecture and design decisions live in
+**Gauss-DataFlow 1.0.0 is the first stable release.** Everything in the
+founding roadmap has shipped: the wire protocol & connector runtime,
+persistence & sealed secrets, Postgres-native orchestration, the web
+console & MCP gateway, the Rust CDK & declarative engine, enterprise
+hardening (RBAC, audit, OAuth2, Vault, webhooks, import tooling), and the
+operator-experience phase — the `gauss-tui` terminal console, the
+mission-control dashboard, indexed fleet-observability APIs, and the
+annotation-rich, spec-current MCP gateway.
+
+What "stable" means here: the connector protocol, the `/api/v1` REST
+surface, the MCP tool catalog, and the database schema (forward-migrated
+automatically) are compatibility surfaces from this release on.
+
+Architecture and design decisions live in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the researched forward roadmap
-for the MCP gateway and agentic AI integration lives in
+for the MCP gateway and agentic AI integration (V1.x) lives in
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License

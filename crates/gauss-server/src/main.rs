@@ -26,6 +26,10 @@ struct Cli {
     /// Require a valid API token on every /api/v1 request
     #[arg(long, env = "GAUSS_REQUIRE_AUTH")]
     require_auth: bool,
+    /// Restrict CORS to these origins (repeat or comma-separate); default is
+    /// permissive for self-hosted setups
+    #[arg(long = "cors-origin", env = "GAUSS_CORS_ORIGIN", value_delimiter = ',')]
+    cors_origins: Vec<String>,
     /// Secrets backend: postgres (default) or vault
     #[arg(long, env = "GAUSS_SECRETS_BACKEND", default_value = "postgres")]
     secrets_backend: String,
@@ -114,9 +118,24 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    let state = AppState::with_secrets(store.clone(), secrets).require_auth(cli.require_auth);
+    let cors_origins = cli
+        .cors_origins
+        .iter()
+        .map(|origin| {
+            origin
+                .parse::<axum::http::HeaderValue>()
+                .with_context(|| format!("invalid --cors-origin `{origin}`"))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let state = AppState::with_secrets(store.clone(), secrets)
+        .require_auth(cli.require_auth)
+        .cors_origins(cors_origins);
     if cli.require_auth {
         tracing::info!("API token authentication required");
+    }
+    if !cli.cors_origins.is_empty() {
+        tracing::info!(origins = ?cli.cors_origins, "CORS restricted");
     }
 
     if cli.worker {
